@@ -24,6 +24,36 @@ D.1000	EQU	1000H	; Operations Register
 ;      Z80DIS was written by Kenneth Gielow
 ;                            Palo Alto, CA
 ;
+
+; symbols which must be defined by the diskdriver
+
+;       EXTRN   INIHRD	=	78ABH
+;       EXTRN   DRIVES	=	7910H
+;       EXTRN   INIENV	=	794CH
+;       EXTRN   DSKIO	=	752EH
+;       EXTRN   DSKCHG	=	7996H
+;       EXTRN   GETDPB	=	79D5H
+;       EXTRN   CHOICE	=	7C39H
+;       EXTRN   DSKFMT	=	7C9FH
+;       EXTRN   MTOFF	=	78F8H
+;       EXTRN   OEMSTA	=	7F6DH
+;       EXTRN   MYSIZE	=	25
+;       EXTRN   SECLEN	=	??? UNKNOWN - IS BUFFER???
+;       EXTRN   DEFDPB	=	74AF - DEFAULT MEDIA F9
+
+; symbols of routines which can be used by the diskdriver
+
+;       PUBLIC  PROMPT
+;       PUBLIC  SETINT
+;       PUBLIC  PRVINT
+;       PUBLIC  GETSLT
+;       PUBLIC  GETWRK
+;       PUBLIC  DIV16
+;       PUBLIC  ENASLT
+;       PUBLIC  XFER
+
+
+
         .Z80
         ORG	7405H
 ;
@@ -88,17 +118,17 @@ MYSIZE	EQU	25
 ;	     Outputs ________________________
 ;---------------------------------------------------
 
-C.7405:	PUSH	BC				;Save the values
-        PUSH	DE
-        LD	A,B					;Get input for Page 0?
-        OR	A					;If 0, set Z-flag
-        IN	A,(0A8H)			;Read Primary Slot Register into 'A'
-        JR	Z,J$7413			;If Page 0 is Slot 0, skip ahead
-        PUSH	BC				;Save again, as we'll be decrementing
+C.7405:	PUSH BC					;Save the values
+        PUSH DE
+        LD A,B					;Get input for Page 0?
+        OR A					;If 0, set Z-flag
+        IN A,(0A8H)				;Read Primary Slot Register into 'A'
+        JR Z,J$7413				;If Page 0 is Slot 0, skip ahead
+        PUSH BC					;Save again, as we'll be decrementing
 J$740E:	RRCA					;Rotate twice with carry, appears to calculate
         RRCA					;page slot assignment
-        DJNZ	J$740E			;Decrement 'B' and Jump if not 0
-        POP	BC					;Once Zero, A is calculated, get back 'B'
+        DJNZ J$740E				;Decrement 'B' and Jump if not 0
+        POP BC					;Once Zero, A is calculated, get back 'B'
 								;and go on.
 J$7413:	AND	03H					; primary slot - probably bit mask ?
         LD	E,A					; used as an offset: 00XX + HL
@@ -1696,7 +1726,7 @@ I$7C3D:
 	;DEFB 0DH,0AH,'3) 5.25" Doble lado  (360 Kb)',0DH,0AH,0DH,0AH,00H
 	
 	;Suggest English Modification
-	DEFB 0DH,0AH,'1) 3.5"  Single Side (360 Kb)'
+	DEFB 0DH,0AH,'1) 3.5"  Single Sided(360 Kb)'
 	DEFB 0DH,0AH,'2) 3.5"  Double Sided(720 Kb)'
 	DEFB 0DH,0AH,'3) 5.25" Double Sided(360 Kb)',0DH,0AH,0DH,0AH,00H
 
