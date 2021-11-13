@@ -118,138 +118,147 @@ MYSIZE	EQU	25
 ;	     Outputs ________________________
 ;---------------------------------------------------
 
-C.7405:	PUSH BC					;Save the values
+C.7405:
+		PUSH BC					;Save the values
         PUSH DE
         LD A,B					;Get input for Page 0?
         OR A					;If 0, set Z-flag
         IN A,(0A8H)				;Read Primary Slot Register into 'A'
         JR Z,J$7413				;If Page 0 is Slot 0, skip ahead
         PUSH BC					;Save again, as we'll be decrementing
-J$740E:	RRCA					;Rotate twice with carry, appears to calculate
+J$740E:	
+		RRCA					;Rotate twice with carry, appears to calculate
         RRCA					;page slot assignment
         DJNZ J$740E				;Decrement 'B' and Jump if not 0
         POP BC					;Once Zero, A is calculated, get back 'B'
-								;and go on.
-J$7413:	AND	03H					; primary slot - probably bit mask ?
-        LD	E,A					; used as an offset: 00XX + HL
-        LD	D,00H
-        LD	HL,I$FCC1
-        ADD	HL,DE				; as we can see here.
-        LD	E,A
-        LD	A,(HL)
-        AND	80H
-        OR	E
-        LD	E,A
-        INC	HL
-        INC	HL
-        INC	HL
-        INC	HL
-        LD	A,B
-        OR	A			; page 0 ?
-        LD	A,(HL)
+
+J$7413:
+		AND 03H					; primary slot - probably bit mask ?
+        LD E,A					; used as an offset: 00XX + HL
+        LD D,00H
+        LD HL,I$FCC1
+        ADD HL,DE				; as we can see here.
+        LD E,A
+        LD A,(HL)
+        AND 80H
+        OR E
+        LD E,A
+        INC HL
+        INC HL
+        INC HL
+        INC HL
+        LD A,B
+        OR A			; page 0 ?
+        LD A,(HL)
         RLCA	
         RLCA	
-        JR	Z,J$7431
-J$742D:	RRCA	
+        JR Z,J$7431
+J$742D:
+		RRCA	
         RRCA	
-        DJNZ	J$742D
-J$7431:	AND	0CH
-        OR	E
-        POP	DE
-        POP	BC
-        RET	
+        DJNZ J$742D
+J$7431:
+		AND 0CH
+        OR E
+        POP DE
+        POP BC
+        RET
 
 ;	  Subroutine Set slotid on page 0
 ;	     Inputs  B = slotid
 ;	     Outputs ________________________
 
-C.7437:	DI	
-        PUSH	BC
-        LD	B,A
-        AND	03H
-        LD	C,A
-        LD	A,B
-        BIT	7,A
-        JR	NZ,J$744B
-        IN	A,(0A8H)
-        AND	0FCH
-        OR	C
-        OUT	(0A8H),A
-        POP	BC
-        RET	
+C.7437:
+		DI
+        PUSH BC
+        LD B,A
+        AND 03H
+        LD C,A
+        LD A,B
+        BIT 7,A
+        JR NZ,J$744B
+        IN A,(0A8H)
+        AND 0FCH
+        OR C
+        OUT (0A8H),A
+        POP BC
+        RET
 
-J$744B:	PUSH	DE
-        IN	A,(0A8H)
-        AND	0FCH
-        OR	C
-        LD	D,A
-        RRCA	
-        RRCA	
-        AND	0C0H
-        LD	E,A
-        LD	A,D
-        AND	3FH
-        OR	E
-        OUT	(0A8H),A
-        LD	A,B
-        AND	0CH
-        RRCA	
-        RRCA	
-        LD	C,A
-        LD	A,(D.FFFF)
-        CPL	
-        AND	0FCH
-        OR	C
-        LD	(D.FFFF),A
-        LD	A,D
-        OUT	(0A8H),A
-        POP	DE
-        POP	BC
-        RET	
-
+J$744B:	PUSH DE
+        IN A,(0A8H)
+        AND 0FCH
+        OR C
+        LD D,A
+        RRCA
+        RRCA
+        AND 0C0H
+        LD E,A
+        LD A,D
+        AND 3FH
+        OR E
+        OUT (0A8H),A
+        LD A,B
+        AND 0CH
+        RRCA
+        RRCA
+        LD C,A
+        LD A,(D.FFFF)
+        CPL
+        AND 0FCH
+        OR C
+        LD (D.FFFF),A
+        LD A,D
+        OUT (0A8H),A
+        POP DE
+        POP BC
+        RET
+		
 ;	  Subroutine Enable FDC on page 0
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
-C.7473:	PUSH	AF
-        PUSH	BC
-        PUSH	DE
-        PUSH	HL
-        CALL	GETWRK
-        LD	B,0			; page 0
-        CALL	C.7405			; Get current slotid on page
-        LD	(IX+24),A
-        LD	B,1			; page 1
-        CALL	C.7405			; Get current slotid on page
-        LD	(IX+23),A
-        LD	B,2			; page 2
-        CALL	C.7405			; Get current slotid on page
-        LD	(IX+22),A
-        DI	
-        LD	A,(IX+23)
-        CALL	C.7437			; Set slotid on page 0
-        POP	HL
-        POP	DE
-        POP	BC
-        POP	AF
-        RET	
+C.7473:
+		PUSH AF
+        PUSH BC
+        PUSH DE
+        PUSH HL
+        CALL GETWRK
+        LD B,0			; page 0
+        CALL C.7405			; Get current slotid on page
+        LD (IX+24),A
+        LD B,1			; page 1
+        CALL C.7405			; Get current slotid on page
+        LD (IX+23),A
+        LD B,2			; page 2
+        CALL C.7405			; Get current slotid on page
+        LD (IX+22),A
+        DI 
+        LD A,(IX+23)
+        CALL C.7437			; Set slotid on page 0
+        POP HL
+        POP DE
+        POP BC
+        POP AF
+        RET
 
-I$749E:	RET	M
-        NOP	
-        LD	(BC),A
-        RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        INC	C
-        NOP	
-        LD	H,E
-        LD	BC,I.0502
-        NOP	
+I$749E:
+		RET M
+        NOP
+        LD (BC),A
+        RRCA
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        INC C
+        NOP
+        LD H,E
+        LD BC,I.0502
+        NOP
 
-I74B0:	LD	SP,HL
+I74B0:
+		LD SP,HL
         NOP	
         LD	(BC),A
         RRCA	
