@@ -1,0 +1,31 @@
+TDC-600 Notes
+
+MSX-DOS Version
+---------------
+The BIO ROM Appears to be based on version disk850902.mac
+
+	This is suggested by what I suspect is a signature at memory
+	location 7E96H:
+ 
+		DEFB "TALENT.1",00H
+		DEFB 00H,02H,02H,01H,00H,02H,70H,00H,D0H,02H,FDH,02H,00H,09H,00H,02H,00H,00H,00H
+	
+	If we look at the last 8 bytes of what I suspect is a signature we see:
+		02h 00h 09h 00h 02h 00h 00h 00h
+   
+	This could be read as: Version 02, Date 0902, 000
+ 
+	If we look to the disk850902.mac file, we see the note:
+		
+		; DOS 1.02 kernel (most common used)
+		; version number is not offical, it is created by me
+		; Assume this is version Sep  2, 1985 (fixed disk damage and template problem)
+		
+	Though, it is noted it is an unofficial version, the information does match up.
+	And is consistent with information at: https://www.msx.org/wiki/The_History_of_MSX-DOS
+	This information suggests there was an update to COMMAND.COM on Sept 2, 1985.  Which leads
+	me to believe this was in fact an updated BIOS for the MSX-DOS version. However, the current
+	MSXDOS.SYS version number would have been 1.03.  Though it is plausible that an older version
+	of the MSX Kernel would have been used, or was still current at that time.  Or that v1.02 of
+	the BIOS was released at that time.  Again, mostly speculation at this point.
+	

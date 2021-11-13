@@ -1,0 +1,386 @@
+Your MSX-DOS kit has the following files.
+
+    Relocatable	objects	for MSX	disk system.
+
+	DOSHEAD.REL	Cartridge header for Disk ROM
+	BIOS.REL	Console	I/O module
+	MSXDOS.REL	Dos kernel
+	SMLDISP.REL	Function dispatcher
+	INIT.REL	Disk system initializer
+	DSKBASIC.REL	Disk BASIC
+	MSXDATA.REL	Data area for kernel
+	BASDATA.REL	Data area for other modules
+
+    Guide for your disk	driver.
+
+	DISK.MEM	Requirements for the disk driver
+
+    Samples for	disk driver.
+
+	DSKDRV.Z80	Sample disk driver
+	BOOT.Z80	Standard boot sector source
+
+	LINK.SUB	Batch file for L80
+
+    Guide for this kit.
+
+	README		This file
+
+
+Write your  own	 disk  driver  which meets all the conditions documented
+in  DISK.MEM,  and  produce  an	 object	 file  named  DSKDRV.REL   using
+Microsoft's M80.   Then  link it with all the .REL files described above
+using LINK.SUB submit file.  Make sure that the	 data  segment	ends  at
+0F380H.	 Your disk driver must not contain any DSEG parts in it.
+
+[NOTE]
+	Please make sure DISINT	and  ENAINT  are  called  properly,  and
+	EI's   are   inserted  at  the  beginning  of  each  entries  of
+	DSKDRV.MAC.   Without  this,  RS232C  driver  will   drop   many
+	characters.
+	See our	sample driver for details.
+
+							   June	20, 1984
+
+************************************************************************
+*								       *
+*	Following notes	are the	changes	made to	the MSX-DOS kit.       *
+*								       *
+************************************************************************
+
+	     MSX DISK INTERFACE	UPDATE HISTORY
+
+DOSHEAD.REL
+
+	Jun 20,	1984	first release
+	Mar  1,	1985	added motor off	function
+
+BIOS.REL
+
+	Jun 20,	1984	first release
+
+MSXDOS.REL
+
+	Jun 20,	1984	first release
+	Jan 29,	1985	fixed write protect problem
+	Sep  2,	1985	fixed disk damage and template problem
+
+SMLDISP.REL
+
+	Jun 20,	1984	first release
+
+INIT.REL
+
+	Jun 20,	1984	first release
+	Mar  1,	1985	added motor off	function
+	Mar  7,	1985	fixed MKI bug
+	May 28,	1985	fixed interslot	routines
+
+DSKBASIC.REL
+
+	Jun 20,	1984	first release
+	Mar  7,	1985	fixed MKI bug
+
+BOOT.Z80
+
+	Jun 20,	1984	first release
+	May 28,	1985	fixed interslot	routines
+	Aug 23,	1985	fixed control-C	problem
+
+DSKDRV.Z80
+
+	Jun 20,	1984	first release
+	Jan 29,	1985	fixed single drive copy	problem
+	Feb 23,	1985	fixed single drive copy	problem
+	Mar  1,	1985	added motor off	function
+	May 28,	1985	fixed interslot	routines
+
+MSXDATA.REL
+
+	Jun 20,	1984	first release
+
+BASDATA.REL
+
+	Jun 20,	1984	first release
+
+------------------------------------------------------------------------
+
+MSXDOS.REL
+
+	Fixed the problem that "abort" did not abort writing to a disk.
+
+		. . .			Write-protect a	disk which
+					has some files in it, and put
+					it into	drive A:.
+
+		A>DELETE *.*		Try to delete files.
+
+		. . .
+
+		Write protect error...	When the  "write  protect error"
+		Abort, Retry, Ignore?_	message	appears,  type	in   "A"
+					to abort the command.
+
+		. . .			Remove the write-protected disk
+					and insert a non-write-protected
+					disk.
+
+		A>DIR			Enter any command that accesses
+					this disk.
+
+		File not found		The directory update is	 retried
+					and the	files are erased.
+
+							October	31, 1984
+------------------------------------------------------------------------
+
+DSKDRV.Z80
+
+	Fixed the problem when copying a file with single disk drive.
+
+	(1)  Format three disks.  Call them FD1, FD2 and FD3.
+
+	(2)  Insert FD1	to the drive and enter "COPY CON T" and [RETURN]
+	     to	the "A>" prompt,  followed  by  [CTRL-Z]  and  [RETURN].
+	     This makes	a one-byte file	with the name "T" in FD1.
+
+	(3)  When the  "A>"  prompt  reappears,  enter  "COPY  T B:" and
+	     [RETURN].	Exchange  diskettes  according	to  the	 prompt.
+	     This copies the file from FD1 to FD2 by single drive.
+
+	(4)  When the  "A>"  prompt  reappears,  enter  "COPY  T B:" and
+	     [RETURN] again.
+	     This copies the file from FD1 to FD3 as above.
+
+	(5)  Find the remaining	space on each of the disks  using  "DIR"
+	     and [RETURN].
+	     FD1, FD2 and FD3 should have same file and	same free space,
+	     but:
+		  FD1  358400 bytes
+		  FD2  358400 bytes
+		  FD3  357376 bytes   (1024 bytes are missing.)
+	     [Note]
+		The amount of free bytes depends on the	type  of  Floppy
+		disk drive that	was used to format.
+
+							January	29, 1985
+------------------------------------------------------------------------
+
+DOSHEAD.REL, INIT.REL and DSKDRV.Z80
+
+	A function to stop the disk drive  motors  from	 an  application
+	program	has  been  added  to the MSX Disk System.  This	function
+	is optional.
+
+	Write following	 routine  in  your  DSKDRV.Z80,	and link it with
+	*.REL files.
+
+		PUBLIC MTOFF
+
+		Inputs:
+			None
+
+		Outputs:
+			None
+
+		Registers:
+			AF, BC,	DE, HL,	IX, IY may be affected.
+			Except for the stack pointer, all registers
+			may be altered.
+
+		Function:
+			Turn off the motors of all disk	drives supported
+			by that	cartridge.
+
+	An application program can stop	the motors of  all  disk  drives
+	by calling  the	 address  4029H	 of the	disk interface ROM.  See
+	example.  Note that contents of	the address 0F348H is  the  slot
+	address	of the master cartridge.
+
+	    Example
+
+		LD	IY,(0F348H-1)	; get slot address to high byte
+					; of IY
+		LD	IX,4029H	; get address to IX
+		CALL	1CH		; inter	slot call
+
+
+	Questions on Compatibility
+
+	In the present disk  interface,	 if  address  4029H  is	 called,
+	nothing	is  done  and  a return	is made	from the disk interface.
+	Other than stopping the	motor, no other	 function  is  performed
+	in the proposed	change.
+
+
+DSKDRV.Z80
+
+	Improved the fix of January 29 version,	which made disk	accesses
+	slow.
+
+							   March 1, 1985
+------------------------------------------------------------------------
+
+INIT.REL and DSKBASIC.REL
+
+	Fixed the DISK-BASIC software problems.
+
+	If you	used  the  MKI$,  MKS$,	or MKD$	functions of Disk BASIC,
+	the BASIC scratchpad was written over and the  carriage	 returns
+	on the screen display was abnormal.
+
+
+MSXDOS.SYS and DSKDRV.Z80
+
+	The disk error handling	procedure was improved.
+
+	There was a danger that	a  disk	 being	damaged,  if,  the  disk
+	was a  non-MSX-DOS format (such	as CP/M), an disk error	occurred
+	and "Ignore" was selected.
+
+	To handle this case, changes have been made  to	 the  MSXDOS.SYS
+	to display  "Unsupported  media  type"  and "Abort" the process.
+	The version number of MSX-DOS.SYS has been changed to 1.01.
+
+	To support  this  function,  cause  error code 10 (decimal) when
+	your disk driver detect	illegal	format.
+
+							   March 7, 1985
+------------------------------------------------------------------------
+
+INIT.REL
+
+	Fixed the expanded slot	problems.
+
+	1. If slot  0  is  expanded,  and RAM of page 3	is not in a slot
+	   that	is expanded from slot 0, MSX-DOS runs away when	booting.
+
+		For example
+
+			Slot 0 --+-- 0	BASIC ROM
+				 +-- 1
+				 +-- 2
+				 +-- 3
+			Slot 1 -----	RAM
+			Slot 2 -----	FD interface
+			Slot 3 -----
+
+
+	2. If the  master  cartridge  of  FD interface and page	1 of RAM
+	   are in the  secondary  slots	 that  are  expanded  from  same
+	   primary slot,  and  slave  cartridge	 of  FD	 interface is in
+	   a primary slot, MSX-DOS runs	away when  the	slave  cartridge
+	   is accessed.
+
+		For example
+
+			Slot 0	       BASIC ROM
+			Slot 1 --+-- 0 FD interface (will be master)
+				 +-- 1 RAM
+			Slot 2	       FD interface (will be slave)
+			Slot 3
+
+	To fix above 2 problems;
+
+		If your	 disk  driver  use  XFER routine when read/write
+		from/to	page 0 or 1 of RAM, please  link  new  INIT.REL.
+
+
+DSKDRV.Z80 and BOOT.Z80
+
+	If your	disk driver makes image	of FDC	port  and  the	routine,
+	that is	 relocated into	RAM, accesses page 0 or	1 of RAM, please
+	correct	DSKDRV.Z80 and BOOT.Z80	according to the  sample  source
+	and link it with the new INIT.REL.
+
+							    May	28, 1985
+------------------------------------------------------------------------
+
+BOOT.Z80
+
+	Fixed the  problem  that  boot	procedure hanged when read error
+	occurred while loading MSXDOS.SYS, and control-STOP or control-C
+	were typed  repeatedly.	  This	was because "boot error" message
+	was interrupted	but no "Break" handler was present.
+
+	Changes	are made to the	boot procedure not  to	use  the  system
+	calls that can be interrupted by "Break" keys.
+
+							 August	23, 1985
+------------------------------------------------------------------------
+
+MSXDOS.REL
+
+	Fixed the following three problems;
+
+	1. Disk	free  space  was  eaten	 or file was jammed, if	the file
+	   was truncated by "random block write"  function  with  length
+	   zero.  FAT  buffer  was  marked invalid, and	FAT was	restored
+	   back	from the disk to somewhere before truncation.
+
+	2. FAT data was	lost if	read error occurred  in	 the  middle  of
+	   FAT read.   Number  of  sectors  was	 not  properly reset for
+	   automatic read retry.  This may be rare but dangerous.
+
+	3. Template data for "buffered  line  input"  was  lost  if  the
+	   previous user input filled the entire buffer.
+	   This	may be introduced when	this  function	was  implemented
+	   from	MS-DOS.
+
+	   RELATED BUGS:
+		Maximum	characters for command line and	CON input should
+		have been  127	for the	compatibility with MS-DOS.  They
+		have been assigned same	 "buffer  size"  as  MS-DOS  and
+		accepted up to 128 bytes.  This	was also fixed.
+
+	****************************************************************
+	Following bugs are known  to  us.   Currently,	they  seem  hard
+	to fix because of ROM patch space shortage.
+	****************************************************************
+
+	1. Bad data is written to a disk when
+	   (a) first write does	not start/end on a sector boundary, and
+	   (b) second write begins on a	sector boundary	 and  overwrites
+	       the entire sector of "partial sector" of (a).
+	   by a	"random block write" function.
+	   This	is  because  the sector	buffer is marked "dirty" at time
+	   of (a), but is not de-marked	at time	of  (b).   Sector  image
+	   at time of (a) is re-written	by later buffer	flush.
+
+	2. "Device" files,  such  as  AUX,  CON, PRN or LST, get garbage
+	   data	while  doing  input/output  to/from  page  1  (4000h  to
+	   7FFFh).  Slot switching is missing, and the memory read/write
+	   is done from/to the disk ROM.
+
+	3. "Search First" and "Search  Next"  functions  forget  to  set
+	   the drive  number  in the first byte	of transfer address when
+	   the transfer	address	is in page  1  (4000h  to  7FFFh).   The
+	   field is left unchanged.  The reason	is same	as 2.
+
+	   RELATED BUGS:
+		Early documents	on the "Search first" and "Search  Next"
+		function are noted as
+
+			The directory entry (32	bytes long) is copied
+			to the transfer	address.
+
+		This should have been
+
+			The drive number and the directory entry (33
+			bytes long) are	copied to the transfer address.
+
+	4. Disk	system	hangs when user	specified incorrect drive number
+	   for "absolute disk read" and "absolute disk write" functions.
+	   There is  no	check for incorrect drive number, and inter-slot
+	   call	to a non-existent disk driver is performed.
+
+	   [NOTE]
+		Drive number for these functions is zero-based (i.e.
+		A:=0), and must	not be confused	with other functions.
+
+	5. control-C, control-N,  control-P  and control-S does	not work
+	   when	There's another key-code in the key buffer.
+	   Control-code	handler	watches	only the top of	the key	buffer.
+
+						       September 2, 1985
+

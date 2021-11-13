@@ -1,0 +1,515 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              Requirements for the disk driver
+               for MSXDOS and MSX-disk-BASIC
+
+
+
+               1st edition   Mar. 13th, 1984
+               Last revised  Mar.  1st, 1985
+               Subject to change with notice
+
+Requirements for the disk driver                      Page 2
+
+
+The following values must be defined and declared as  PUBLIC
+by the interfacer.
+
+MYSIZE
+        Byte size of the work area used by the driver.
+
+SECLEN
+        The maximum  sector  size  for  the  media supported
+        by the driver.
+
+DEFDPB
+        The base  address  of  the  DPB  (which  consists of
+        18 bytes)  for  the  media  which  has  the  biggest
+        FATSIZ*SECSIZ.
+
+The following  subroutines  must  be  provided  and declared
+as PUBLIC by the interfacer.
+
+INIHRD          Initialize hardware only
+DRIVES          Return number of drives connected
+INIENV          Initialize environments
+DSKIO           Disk read/write
+DSKCHG          Get disk change status
+GETDPB          Get drive parameter block
+CHOICE          Return menu string for disk format
+DSKFMT          Disk format
+OEMSTATEMENT    Expanded statement entry
+MTOFF           Stop motor (option)
+
+In-depth description of each routines follow next.
+
+INIHRD
+
+        Inputs:
+                None
+
+        Outputs:
+                None
+
+        Registers:
+                AF, BC, DE, HL, IX, IY may be affected.
+
+        This routine  is  prepared  to  initialize  hardware
+        as soon as the cartridge gains service.   Note  that
+        when  this  routine  is  entered,  no  work  area is
+        assigned.
+Requirements for the disk driver                      Page 3
+
+
+DRIVES
+
+        Inputs:
+                [F]  =  zero flag  reset  if  when  only one
+                        drive   must   act   as   2   drives
+                        logically.
+
+        Outputs:
+                [L]  =  number of drives connected
+
+        Registers:
+                F, HL, IX, IY may be affected.
+
+        First   of   all,  the  number  of  drives  ACTUALLY
+        connected to your cartridge  must  be  counted.   If
+        there are  more than 1 drive or the zero flag passed
+        from the caller is set, return the number of  drives
+        with no modification.
+
+        However, if  only  1  drive  has been detected to be
+        present and the  zero  flag  passed  is  reset,  '2'
+        must be  returned  as  the  number of drives and the
+        DSKIO and  DSKFMT  routine  must  support  2  drives
+        logically.  When  switching  drives,  use the PROMPT
+        routine described below to prompt the user.
+
+        When this routine is  entered,  the  work  area  for
+        the driver is already allocated.
+
+INIENV
+        Inputs:
+                None
+
+        Outputs:
+                None
+
+        Registers:
+                AF, BC, DE, HL, IX, IY may be affected.
+
+        This entry  is  prepared  to initialize environments
+        (i.e., work area).
+
+
+============================================================
+=       INIHRD, DRIVES and INIENV are  called  only        =
+=       once at  initialization  =  in  this order.        =
+============================================================
+Requirements for the disk driver                      Page 4
+
+
+DSKIO
+
+        Inputs:
+                [F]  =  carry flag reset if read,
+                                     set if write
+                [A]  =  drive number ( 0 based )
+                [B]  =  number of sectors to read/write
+                [C]  =  media descriptor
+                [DE] =  logical sector number ( 0 based )
+                [HL] =  transfer address
+
+        Outputs:
+                If successful, carry flag cleared.
+                Otherwise,     carry flag set,
+                               error code in [A],
+                               number of remaining sectors
+                               in [B].
+
+        Registers:
+                AF, BC, DE, HL, IX, IY may be affected.
+
+        The drive  number  and  media  descriptor  come from
+        the drive parameter block.  The  number  of  sectors
+        may range  from  1  to  255.  Logical sector numbers
+        start at zero and count by ones,  so  it  is  up  to
+        the I/O  system  to  map  it  into track and sector.
+        Logical sector 0 corresponds to sector  1  on  track
+        0.
+
+        Error codes are defined as follows:
+
+                0       write protected
+                2       not ready
+                4       data (CRC) error
+                6       seek error
+                8       record not found
+                10      write fault
+                12      other errors
+Requirements for the disk driver                      Page 5
+
+
+DSKCHG
+
+        Inputs:
+                [A]  =  drive number
+                [B]  =  0
+                [C]  =  media descriptor
+                [HL] =  base address of DPB
+
+        Outputs:
+                If successful:
+                    carry flag reset,
+                    [B]  = disk change status
+                             1      disk not changed
+                             0      unknown
+                            -1      disk has been changed
+
+                ELSE:
+                    carry flag set,
+                    error code in [A] (same as DSKIO above)
+
+        [NOTE]
+
+        If disk  has been changed or might have been changed
+        (i.e., unknown), read the boot sector or  the  first
+        byte of  FAT  of  the  diskette  which  is currently
+        inserted and transfer a new just  like  GETDPB  call
+        described below.
+
+        Registers:
+                AF, BC, DE, HL,IX, IY may be affected.
+Requirements for the disk driver                      Page 6
+
+
+GETDPB
+
+        Inputs:
+                [A]  =  drive number
+                [B]  =  first byte of FAT
+                [C]  =  media descriptor
+                [HL] =  base address of DPB
+
+        Outputs:
+            [HL+1] .. [HL+18] = DPB for the specified drive
+
+        DPB (drive descriptor block) is defined as follows:
+
+        MEDIA     byte   media type
+        SECSIZ    word   sector size ( must be 2^n )
+        DIRMSK    byte   ( SECSIZ / 32 ) - 1
+        DIRSHFT   byte   number of one bits in DIRMSK
+        CLUSMSK   byte   ( sectors per cluster ) - 1
+        CLUSSHFT  byte   ( number of  one  bits  in  CLUSMSK
+                         ) +  1
+        FIRFAT    word   logical sector  number   of   first
+                         FAT
+        FATCNT    byte   number  of  FATs
+        MAXENT    byte   numberof directory  entries  (  max
+                         254 )
+        FIRREC    word   logical sector   number   of  start
+                         of data area
+        MAXCLUS   word   ( number   of   clusters  on  drive
+                         [ not including  reserved  sectors,
+                         FAT sectors  or  directory  sectors
+                         ] ) + 1
+        FATSIZ    byte   number  of  sectorsused by
+        FIRDIR    word   FAT logical sector  numberof  start
+                         of directory
+
+        Note that 'logical sector number' is always zero based.
+Requirements for the disk driver                      Page 7
+
+
+CHOICE
+        Returns in [HL]  a  pointer  to  a  zero  terminated
+        string which  is  used  as  a menu by the main code.
+        The simplest form of the  routine  would  look  like
+        this.
+
+        CHOISE: LD      HL,CHOMSG
+                RET
+        ;
+        CHOMSG: DEFB    '1 - single sided, 8 sectors',CR,LF
+                DEFB    '2 - single sided, 9 sectors',CR,LF
+                DEFB    '3 - double sided, 8 sectors',CR,LF
+                DEFB    '4 - double sided, 9 sectors',CR,LF
+                DEFB    0
+
+        If there is no choice  (i.e.,  only  one  format  is
+        supported), return with 0 in [HL] register.
+
+        All registers except SP may be affected.
+
+
+
+DSKFMT
+        Formats a diskette both  physically  and  logically.
+        Input parameters are:
+
+        [A]     Choice specified by the user (from 1 to 9).
+                Does not make sense if there's no choice.
+        [D]     0 based drive number
+        [HL]    Beginning address of  the  work  area  which
+                can be used by the format process.
+        [BC]    Length of the work area described above.
+
+        All registers except SP may be affected.
+
+        This routine  is  responsible  for  formatting   all
+        tracks physically, writing the boot sector, clearing
+        FATs and directory entries.
+
+        'Clearing FATs' means:
+
+          write the media descriptor byte at the first byte.
+          write 0FFH at the second and the third byte.
+          fill rest with 0's
+
+        'Clearing directory entries' means:
+
+          fill all bytes with 0's
+Requirements for the disk driver                      Page 8
+
+
+        If the format ends successfully, return  with  carry
+        flag reset,  otherwise  return  with carry flag set.
+        Error codes are defined as follows:
+
+                0       write protected
+                2       not ready
+                4       data (CRC) error
+                6       seek error
+                8       record not found
+                10      write fault
+                12      bad parameter
+                14      no enough memory
+                16      other errors
+
+        [NOTE]
+
+        No prompting messages should  be  produced  by  this
+        routine.
+
+
+OEMSTATEMENT
+        Expanded statement entry.  After disk BASIC  scanned
+        its own   expanded  statements,  control  is  passed
+        to this entry.  Calling sequence is  the  same  with
+        normal expanded  statement  handler.  Just set carry
+        flag and perform a Z80's 'RET' instruction  if  your
+        ROM has no such statements.
+
+
+MTOFF   (option)
+
+        Inputs:
+                None
+        Outputs:
+                None
+        Registers:
+                AF, BC, DE, HL, IX, IY may be affected.
+        Function:
+                Stop all motors supported by that cartridge.
+
+        [Note]
+
+        An application program can stop the motor by calling
+        the address 4029H of the disk  interface  ROM.   See
+        example.  Note  that  contain  of the address 0F348H
+        is the slot address of the master cartridge.
+
+        LD      IY,(0F348H-1)   ; get slot address to high byte of IY
+        LD      IX,4029H        ; get address to IX
+        CALL    1CH             ; inter slot call
+
+        This function  is  optional  and  added  to  spec on
+        Mar. 1st, 1985.  If you call the 4029H  of  the  old
+        version disk interface, it does nothing and returns.
+
+Requirements for the disk driver                      Page 9
+
+
+*****************************************
+*                                       *
+*    Some useful external routines      *
+*                                       *
+*****************************************
+
+PROMPT
+        Prints a message like,
+
+        'Insert diskette for drive X:
+         and strike a key when ready'
+
+        and waits  for  the  user  to  strike a key.  'X' is
+        a drive name for the disk system  which  corresponds
+        to the  current  target  drive  of  your  cartridge.
+
+SETINT
+        This routine saves  previously  set  interrupt  hook
+        to a  location  specific to your cartridge, and sets
+        the  new  interrupt  hook.   The  address   of   the
+        interrupt   routine   should   be  passed  via  [HL]
+        register.  See DSKDRV.Z80 for details.
+
+PRVINT
+        This routine  jumps  to  the interrupt hook that you
+        might have  overwritten.   Requires   no   argument.
+        See DSKDRV.Z80 for details.
+
+GETSLOT
+        Gets slot address (i.e., where I am) in [A].
+        Preserves DE, IX, IY
+
+GETWRK
+        Gets base of work area in [IX] and [HL].
+        Preserves DE, IY
+
+DIV16
+        [BC] =  [BC]/[DE],  remainder  in  [HL].
+        Preserves DE, IX, IY
+
+ENASLT
+        Enables a slot at an address specified  by  [A]  and
+        [HL] respectively.  Destroys all registers.
+
+XFER
+        Moves [BC] bytes from [HL] to [DE] (i.e., LDIR)
+        Preserves AF, IX, IY
+        BC is set to 0, HL  and  DE  pointing  to  the  next
+        location of  source  and  destination  respectively.
+
+        Use this  routine  when  a  read/write  operation is
+        requested to 4000H..7FFFH, and  your  hardware  does
+        not have  any special mechanism to transfer directly
+        to these areas.
+Requirements for the disk driver                     Page 10
+
+
+*****************************************
+*                                       *
+*          External variables           *
+*                                       *
+*****************************************
+
+$SECBUF
+        Pointer to  a  temporary  storage  which is at least
+        SECLEN byte long.  Prepared for  use  combined  with
+        the XFER  subroutine  described  above,  but  can be
+        used TEMPORARILY for any purpose.
+
+RAMAD0, RAMAD1, RAMAD2, RAMAD3
+        Slot address  of  RAM  (if present) at 0000H..3FFFH,
+        4000H..7FFFH,       8000H..BFFFH,        C000H.FFFFH
+        respectively.
+
+RAWFLG
+        Read-After-Write flag.   When  this  byte   contains
+        non   0   value,   the   disk   driver   should   do
+        read-after-write check.  However, it  is  completely
+        up to  the  driver  whether  to do the check or not.
+Requirements for the disk driver                     Page 11
+
+
+                How to determine media types
+
+a) Read the  boot  sector  (track 0, sector 1) of the target
+   drive.
+
+b) See if the first byte is  either  0E9H  or  0EBH  (8086's
+   JMP instruction)
+
+c) If b)  failed,  this  is  the pre-MSDOS 2.0 disk, so, use
+   the first byte of FAT passed from  the  caller  and  make
+   sure it is between 0F8H and 0FFH.
+
+   If c) succeeds, use this as a media descriptor.
+
+   If c) fails, then cannot read this disk.
+
+d) If b)  succeeds,  read  the byte # 0B through # 1D.  This
+   is the DPB for MSDOS  version  2.0  or  later.   DPB  for
+   MSXDOS can be obtained as follows.
+
+
+
+                 MSDOS boot sector contents
+
+   +00  0E9H,XX,XX or 0EBH,XX,XX
+   +03  ASCII string of OEM name
+   +0B  bytes per sector                        (low)
+   +0C                                          (high)
+   +0D  sectors per cluster
+   +0E  number of reserved sectors              (low)
+   +0F                                          (high)
+   +10  number of FATs
+   +11  number of directory entries             (low)
+   +12                                          (high)
+   +13  total number of sectors in the media    (low)
+   +14                                          (high)
+   +15  media descriptor
+   +16  number of sectors per FAT               (low)
+   +17                                          (high)
+   +18  sectors per track                       (low)
+   +19                                          (high)
+   +1A  number of heads                         (low)
+   +1B                                          (high)
+   +1C  number of hidden sectors                (low)
+   +1D                                          (high)
+Requirements for the disk driver                     Page 12
+
+
+                    MS-DOS Disk formats
+
+For 5 and 3 and 3.5 inch (IBM PC format)
+
+                   /---First digit : track number 8=80, 4=40
+                   |/--Second digit: Sector count  8 or 9
+                   ||/-Third digit : Head count    1 or 2
+                   |||
++----------------+----+----+----+----++----+----+----+----+
+|                | 891| 892| 881| 882|| 491| 492| 481| 482|
++----------------+----+----+----+----++----+----+----+----+
+|Root directory  | 112| 112| 112| 112||  64| 112|  64| 112|
+|entry           |    |    |    |    ||    |    |    |    |
++----------------+----+----+----+----++----+----+----+----+
+|Media descriptor|0F8H|0F9H|0FAH|0FBH||0FCH|0FDH|0FEH|0FFH|
+|byte (FATID)    |    |    |    |    ||    |    |    |    |
++----------------+----+----+----+----++----+----+----+----+
+|Sectors for     |   2|   3|   1|   2||   2|   2|   1|   1|
+|1 fat           |    |    |    |    ||    |    |    |    |
++----------------+----+----+----+----++----+----+----+----+
+|Sectors/track   |   9|   9|   8|   8||   9|   9|   8|   8|
++----------------+----+----+----+----++----+----+----+----+
+|No. sides       |   1|   2|   1|   2||   1|   2|   1|   2|
++----------------+----+----+----+----++----+----+----+----+
+|Track/side      |  80|  80|  80|  80||  40|  40|  40|  40|
++----------------+----+ ---+----+----++----+----+----+----+
+|Bytes/sector    | 512| 512| 512| 512|| 512| 512| 512| 512|
++----------------+----+----+----+----++----+----+----+----+
+|# of FATs       |   2|   2|   2|   2||   2|   2|   2|   2|
++----------------+----+----+----+----++----+----+----+----+
+|Sectors/cluster |   2|   2|   2|   2||   1|   2|   1|   2|
++----------------+----+----+----+----++----+----+----+----+
+--+
+|Sectors/clust

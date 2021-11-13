@@ -1,0 +1,1541 @@
+	.Z80
+	TITLE	MSXDOS  VERS. 1.1
+
+	IF1
+	.PRINTX	*                       *
+	.PRINTX	*  MSX-DOS  Vers. 1.1   *
+	.PRINTX	*                       *
+	ENDIF
+
+	.COMMENT%
+--------------------------------------
+
+
+Este programa es un desensamble del 
+sistema operativo MSXDOS Version
+1.03 modificado.
+
+El archivo original se carga a partir 
+de la direccion 100H y se reubica utili-
+zando como hi-top el valor devuelto por 
+la subrutina GET_TOP de la DISK-ROM.
+
+Debe entrarse con la DISK-ROM habilitada 
+en la pagina 1.
+
+--------------------------------------
+	%
+	SUBTTL	ROM entry points.
+	PAGE
+
+; MSX-DOS SYSTEMS CALLS
+
+CON_INP	EQU	5445H
+CON_OUP	EQU	53A7H
+AUX_INP	EQU	546EH
+AUX_OUT	EQU	5474H
+LST_OUT	EQU	5465H
+CON_IO	EQU	5454H
+D_INPNC	EQU	5462H
+D_INPCK	EQU	544EH
+BUF_INP	EQU	50E0H
+CON_STA	EQU	543CH
+GET_VER	EQU	41EFH
+DSK_RST	EQU	509FH
+SLT_DSK	EQU	50D5H
+OPEN_F	EQU	4462H
+CLOSE_F	EQU	456FH
+SRCH_FR	EQU	4FB8H
+SRCH_NX	EQU	5006H
+DEL_F	EQU	436CH
+SEQ_RD	EQU	4775H
+SEQ_WR	EQU	477DH
+CREAT_F	EQU	461DH
+REN_F	EQU	4392H
+GET_ONL	EQU	504EH
+G_DFDRV	EQU	50C4H
+SET_DMA	EQU	5058H
+GET_ALL	EQU	505DH
+RND_RD	EQU	4788H
+RND_WR	EQU	4793H
+G_FLSIZ	EQU	501EH
+S_RNDRC	EQU	50C8H
+RND_BWR	EQU	47BEH
+RND_BRD	EQU	47B2H
+RN_WRZF	EQU	47D1H
+GET_DAT	EQU	553CH
+SET_DAT	EQU	5552H
+GET_TIM	EQU	55DBH
+SET_TIM	EQU	55E6H
+FL_VRFY	EQU	55FFH
+ABS_RD	EQU	46BAH
+ABS_WR	EQU	4720H
+
+GET_TOP	EQU	4030H
+
+
+	SUBTTL	Variables y rutinas varias
+	PAGE
+
+SP_SAVE EQU	0F304H
+DC_FL	EQU	0F306H
+OLD_FCB	EQU	0F307H
+EX_ERRV	EQU	0F323H
+EX_CTC	EQU	0F325H
+NOT_FRS	EQU	0F340H
+DMA_ADR	EQU	0F23DH
+
+; Manejo de pagina 1.
+
+EN_PAGE	EQU	0F368H	; Habilita disk ROM.
+RS_PAGE	EQU	0F36BH	; Habilita RAM.
+
+STR_OUT	EQU	0F1C9H
+
+; Macros
+
+NEXT	MACRO
+	DS	100H-LOW($)
+	ENDM
+
+	SUBTTL	Macros para reubicacion.
+	PAGE
+
+	.COMMENT%
+
+Estas cuatro MACROS generan nuevas ins-
+trucciones que ademas de generar codigo
+van sumando a una lista las posiciones
+de memoria en que existen referencias a 
+direcciones o valores absolutos para
+que le sea sumado el offset correspon-
+diente durante la reubicacion.
+
+Estas instrucciones son:
+
+  RLD   = LD
+  RDW   = DW
+  RJP   = JP
+  RCALL = CALL
+
+y deben reemplazar las originales en las
+instrucciones que tengan operandos relati-
+vos al modulo a reubicar.
+
+	%
+
+RCALL	MACRO	BB,FF
+	IFNB	<FF>
+	CALL	BB,FF
+	ELSE
+	CALL	BB
+	ENDIF
+	MK
+	ENDM
+
+RJP	MACRO	CC,GG
+	IFNB	<GG>
+	JP	CC,GG
+	ELSE
+	JP	CC
+	ENDIF
+	MK
+	ENDM
+
+RDW	MACRO	DD
+	DW	DD
+	MK
+	ENDM
+
+RLD	MACRO	EE,HH
+	LD	EE,HH
+	MK
+	ENDM
+
+MK	MACRO
+	MK1	%(MK_COU)
+	ENDM
+
+MK1	MACRO	AA
+MKP&AA	EQU	$-2
+MK_COU	ASET	MK_COU+1
+	ENDM
+
+
+DDWW	MACRO	DD
+	DW	MKP&DD
+	ENDM
+
+; C O N T A D O R E S
+
+MK_COU	ASET	1
+;
+	SUBTTL	Carga del sistema
+	PAGE
+
+	ASEG
+	ORG	100H
+
+INIT:
+	JR	DESPMSG
+;		 ----5----5----5----5
+	DB	'MSX-DOS 1.10 rev A'
+	DB	13,10
+DESPMSG:JR	DPMS2
+	DB	'Diciembre-4-1986 '
+	DB	13,10,01AH
+DPMS2:	JR	DPMS3
+	DB	'Modificado por Carlos A. Ranalli para Telematica S.A. '
+DPMS3:	LD	SP,0A000H
+	CALL	GET_TOP
+	LD	(TOP_MEM),HL
+	LD	A,(NOT_FRS)
+	AND	A
+	JP	NZ,NOCONFIG
+	LD	DE,LOADMSG
+	CALL	L00317
+NOLDMSG:
+;
+;
+; *************************************
+;
+;    
+READ_CONFIG:
+	LD	DE,CF_FCB
+	CALL	OPEN_F
+	OR	A
+	JP	NZ,NOCONFIG
+	LD	HL,RDBYT
+	LD	(DMA_ADR),HL
+	LD	HL,0
+	LD	(CF_FCB+33),HL
+	LD	(CF_FCB+35),HL
+	INC	HL
+	LD	(CF_FCB+14),HL
+CFLOOP:	CALL	RD_LINE
+	LD	A,B
+	OR	A
+	CALL	NZ,INT_LINE
+	LD	A,(RDBYT)
+	CP	01AH
+	JP	Z,NOCONFIG
+	JR	CFLOOP
+;
+RD_LINE:
+	LD	HL,RDBYT
+	LD	(DMA_ADR),HL
+	LD	DE,LINE_BUF
+	LD	B,0
+RLL:	CALL	RD_BYTE
+	CP	1AH
+	JR	NZ,NOEOF
+	LD	A,0AH
+NOEOF:	CALL	CK_EMP
+	CP	0AH
+	RET	Z
+	INC	B
+	JR	RLL
+;
+CK_EMP:	PUSH	HL
+	LD	HL,LINE_BUF+4EH
+	OR	A
+	SBC	HL,DE
+	POP	HL
+	JR	NC,CKE2
+	CP	0DH
+	RET	NZ
+CKE2:	LD	(DE),A
+	INC	DE
+	RET
+;
+;
+RD_BYTE:
+;
+; Lee un byte de CONFIG.SYS
+;
+	PUSH	HL
+	PUSH	DE
+	PUSH	BC
+	LD	DE,CF_FCB
+	LD	HL,1
+	CALL	RND_BRD
+	POP	BC
+	POP	DE
+	POP	HL
+	OR	A
+	JR	NZ,EOFP
+	LD	A,(RDBYT)
+	RET
+;
+EOFP:	LD	A,1AH
+	LD	(RDBYT),A
+	RET
+;
+INT_LINE:
+;
+; Interpreta linea de CONFIG.SYS
+;
+	LD	HL,LINE_BUF
+	LD	DE,CMD_BUF
+	XOR	A
+	CALL	SCANNER
+	PUSH	HL
+	LD	HL,CMD_MSG
+L0085F:	LD	B,8
+	LD	DE,CMD_BUF+1
+L00864:	LD	A,(DE)
+	CP	(HL)
+	JR	NZ,L00871
+	INC	HL
+	INC	DE
+	DJNZ	L00864
+	LD	E,(HL)
+	INC	HL
+	LD	D,(HL)
+	EX	DE,HL
+	POP	DE
+	JP	(HL)
+
+L00871:	INC	HL
+	DJNZ	L00871
+	INC	HL
+	INC	HL
+	LD	A,(HL)
+	OR	A
+	JR	NZ,L0085F
+	POP	DE
+	LD	DE,CFERR
+	CALL	L00317
+	RET
+;
+;
+	SUBTTL	SCANNER.
+	PAGE
+
+	.COMMENT%
+
+Esta rutina copia del (HL) al (DE)
+dando formato de FCB.
+
+
+1      8       3    1  1  1  1   <- Bytes
+
+00  XXXXXXXX  XXX  00 00 00 00 
+
+|   ||||||||  |||  || || || ||
+|   ||||||||  |||  ++-++-++-++- 4 Bytes con 0.
+|   ||||||||  |||
+|   ||||||||  +++---  EXT ( Si encuentra '.' en texto )
+|   ||||||||
+|   ++++++++--- FLN =  filename
+|
++----------- DRIVE = 0 Si no encuentra 'X:'
+                     X-40H Si encuentra.
+                     FFH si es incorrecto.
+ 
+ PARAMETROS:
+
+ (Acc)= 76543210
+	|||||||+-- 0= No saltea delim.
+	|||||||    1= saltea
+        +++++++--- No utilizados.
+
+ RETORNA :
+
+ (C) = 0 Si no encuentra wild-cards.
+       1 Si  encuentra  '*' o '?'
+
+	%
+
+;
+SCANNER:
+	PUSH	DE
+	EX	DE,HL
+	LD	(HL),00H
+L01170:	INC	HL
+	LD	BC,000BH
+	CALL	SP_FILL
+	LD	(HL),B
+	INC	HL
+	LD	(HL),B
+	INC	HL
+	LD	(HL),B
+	INC	HL
+	LD	(HL),B
+	EX	DE,HL
+	POP	DE
+	BIT	0,A
+	JR	Z,L01198
+	CALL	SKIP_SP
+	CALL	CK_SEP
+	JR	NZ,L0119B
+	INC	HL
+L01198:	CALL	SKIP_SP
+L0119B:
+	INC	DE
+	LD	C,00H
+	LD	B,08H
+	CALL	L011D4
+	LD	A,(HL)
+	CP	'.'
+	JR	NZ,L011D2
+	INC	HL
+	LD	B,03H
+	CALL	L011DB
+L011D2:	LD	A,C
+	RET
+;
+L011D4:	CALL	SYN_CHK
+	JR	C,L011FB
+	JR	Z,L011FB
+L011DB:	CALL	SYN_CHK
+	JR	Z,L01201
+	JR	C,L01201
+	INC	HL
+	INC	B
+	DEC	B
+	JR	Z,L011DB
+	CP	'*'
+	JR	Z,L011F4
+	LD	(DE),A
+	INC	DE
+	DEC	B
+	CP	'?'
+	JR	Z,L011F7
+	JR	L011DB
+;
+L011F4:	CALL	L0120A
+L011F7:	LD	C,01H
+	JR	L011DB
+;
+L011FB:	LD	A,E
+	ADD	A,B
+	LD	E,A
+	RET	NC
+	INC	D
+	RET
+;
+L01201:	INC	B
+	DEC	B
+	RET	Z
+	LD	A,' '
+	JR	XFILL
+;
+FILL11:
+	LD	B,11
+
+L0120A:
+	LD	A,'?'
+
+XFILL:
+;
+; Llena (B) lugares a partir de (DE) con
+; (Acc).
+;
+	LD	(DE),A
+	INC	DE
+	DJNZ	XFILL
+	RET
+
+
+SP_FILL:
+;
+; Llena con SP (C) en (HL).
+
+	LD	(HL),' '
+	INC	HL
+	DEC	C
+	JR	NZ,SP_FILL
+	RET
+;
+SKIP_SP:
+	LD	A,(HL)
+	INC	HL
+	CALL	CHCK_SP
+	JR	Z,SKIP_SP
+	DEC	HL
+	RET
+;
+SYN_CHK:
+	LD	A,(HL)
+	CP	61H
+	JR	C,CHCK_1
+	CP	7BH
+	JR	NC,CHCK_1
+	SUB	20H
+CHCK_1:	CP	':'
+	RET	Z
+	CP	'.'
+	RET	Z
+	CP	'"'
+	RET	Z
+	CP	'['
+	RET	Z
+	CP	']'
+	RET	Z
+	CP	'_'
+	RET	Z
+	CP	'/'
+	RET	Z
+	CP	'+'
+	RET	Z
+
+CK_SEP:	CP	'='
+	RET	Z
+	CP	';'
+	RET	Z
+	CP	','
+	RET	Z
+CHCK_SP:
+	CP	09H
+	RET	Z
+	CP	' '
+	RET
+;
+;
+;
+CMD_MSG:
+;
+; Tabla de comandos.
+;
+	DB	'        '
+	DW	DUM_CMD
+	DB	'DEVICE  '
+	DW	DEV_CMD
+	DB	'COLOR   '
+	DW	COL_CMD
+	DB	'KEY     '
+	DW	KEY_CMD
+	DB	0
+;
+DUM_CMD:RET
+;
+DEV_CMD:
+;
+; Lee de disco un archivo con drivers
+; e instala.
+;
+; El archivo debe tener un ecabezamiento
+; como este:
+;
+;+0	DB	'D'
+;	DB	'V'
+;+2	DW	TABLA    ; Puntero a tabla
+;			 ; de reloc
+;+4	DW	INIT	 ; Punt a rut de 
+;			 ; de inic (offset to code).
+;+5	DW	CODE	 ; LONG. DE CODE
+;
+;
+;
+;
+;+16    CODE
+;
+	EX	DE,HL
+	LD	DE,CMD_BUF
+	LD	A,1
+	CALL	SCANNER
+	LD	A,C
+	OR	A
+	JP	NZ,INVDEV
+	LD	DE,CMD_BUF
+	CALL	OPEN_F
+	OR	A
+	JP	NZ,NTFDEV
+	LD	HL,(CMD_BUF+18)
+	LD	A,H
+	OR	L
+	JR	NZ,DEVLONG
+	LD	HL,(CMD_BUF+16)
+	LD	DE,1000H
+	SBC	HL,DE
+	JP	NC,DEVLONG
+
+	LD	HL,8000H
+	LD	(DMA_ADR),HL
+	LD	HL,0
+	LD	(CMD_BUF+33),HL
+	LD	(CMD_BUF+35),HL
+	INC	HL
+	LD	(CMD_BUF+14),HL
+	LD	HL,(CMD_BUF+16)
+	LD	DE,CMD_BUF
+	CALL	RND_BRD
+	OR	A
+	JP	NZ,ERRLEC
+	LD	A,(8000H)
+	CP	'D'
+	JP	NZ,INVDEV
+	LD	A,(8001H)
+	CP	'V'
+	JP	NZ,INVDEV
+	LD	DE,0C000H
+	LD	HL,(TOP_MEM)
+	OR	A
+	SBC	HL,DE
+	JP	C,NOMEM
+	EX	DE,HL
+	LD	DE,(8006H)
+	OR	A
+	SBC	HL,DE
+	JP	C,NOMEM
+	LD	BC,(8006H)
+	LD	HL,(8002H)
+	LD	DE,8010H
+	CALL	RELOC
+	LD	HL,(8004H)
+	LD	DE,(TOP_MEM)
+	ADD	HL,DE
+	CALL	JPHL
+	LD	(TOP_MEM),HL
+	RET
+
+JPHL:	JP	(HL)
+
+NTFDEV:	LD	DE,NTFM
+	JR	DEVERR
+INVDEV:	LD	DE,INVDEVM
+	JR	DEVERR
+DEVLONG:LD	DE,DVLONGM
+	JR	DEVERR
+ERRLEC:	LD	DE,RDERRM
+	JR	DEVERR
+NOMEM:	LD	DE,NOMM
+DEVERR:	CALL	L00317
+	LD	HL,0A0DH
+	LD	(CMD_BUF+12),HL
+	LD	A,'$'
+	LD	(CMD_BUF+14),A
+	LD	DE,CMD_BUF+1
+	JP	L00317
+;		     **** **** **** **** **** **** 
+NTFM:	DB	0ch,'No esta  $'
+INVDEVM:DB	0ch,'No entiendo  $'
+DVLONGM:DB	0ch,'Demasiado largo  $'
+RDERRM:	DB	0ch,'Error leyendo  $'
+NOMM:	DB	0ch,'No hay memoria para  $'
+;
+;
+COL_CMD:
+;
+; Sintaxis color=f,b,b
+;
+FGCOL	EQU	0F3E9H
+BGCOL	EQU	0F3EAH
+BDCOL	EQU	0F3EBH
+;
+	EX	DE,HL
+	CALL	GETNUM
+	CP	16
+	JR	NC,INVARG
+	LD	(FGCOL),A
+	CALL	GETNUM
+	CP	16
+	JR	NC,INVARG
+	LD	(BGCOL),A
+	CALL	GETNUM
+	CP	16
+	JR	NC,INVARG
+	LD	(BDCOL),A
+;
+	LD	A,(0FCC1H)
+	LD	(SLTT2),A
+	RST	30H
+SLTT2:	DB	0
+	DW	0062H
+	RET
+;
+INVARG:	LD	DE,COLMSG
+	JP	L00317
+;
+;		 **** **** **** **** **** **** 
+COLMSG:	DB	'Color invalido.              '
+	DB	0DH,0AH,'$'
+;
+KEY_CMD:
+	EX	DE,HL
+	CALL	SKIP_SP
+	CALL	CK_SEP
+	JR	NZ,KKKK
+	INC	HL
+	CALL	SKIP_SP
+KKKK:	PUSH	HL
+	LD	A,(HL)
+	CP	'S'
+	JR	NZ,NOSSI
+	INC	HL
+	LD	A,(HL)
+	CP	'I'
+	JR	NZ,NOSSI
+	JP	KEYON
+NOSSI:	POP	HL
+	CALL	GETNUM
+	DEC	A
+	CP	10
+	JR	NC,INVKEY
+	PUSH	HL
+	LD	L,A
+	LD	H,0
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	DE,0F87FH
+	ADD	HL,DE
+	CALL	FILLSP
+	EX	DE,HL
+	POP	HL
+	LD	A,(HL)
+	CALL	CK_SEP
+	JR	NZ,INVKEY
+	INC	HL
+	LD	B,13
+KEYL:	LD	A,(HL)
+	CP	20H
+	JR	C,KEYOK
+	CP	'/'
+	JR	NZ,NOEOL
+	LD	A,0DH
+NOEOL:	LD	(DE),A
+	CP	0DH
+	JR	Z,DFK
+	INC	HL
+	INC	DE
+	DJNZ	KEYL
+	JR	INVKEY
+;
+DFK:	INC	DE
+NOCRT:	EX	DE,HL
+	LD	(HL),0
+	RET
+KEYON:
+	POP	HL
+	LD	A,(0FCC1H)
+	LD	(SLTT1),A
+	RST	30H
+SLTT1:	DB	0
+	DW	00CFH
+	RET
+;
+KEYOK:	CP	0DH
+	JR	Z,NOCRT
+INVKEY:	LD	DE,KEYERR
+	JP	L00317
+
+FILLSP:	PUSH	HL
+	PUSH	BC
+	LD	B,16
+FFSSLL:	LD	(HL),20H
+	INC	HL
+	DJNZ	FFSSLL
+	POP	BC
+	POP	HL
+	RET
+;
+;		 **** **** **** **** **** **** 
+KEYERR:	DB	'Key invalido.                '
+	DB	0DH,0AH,'$'
+
+;
+GETNUM:	CALL	SKIP_SP
+	CALL	CK_SEP
+	JR	NZ,L0219B
+	INC	HL
+	CALL	SKIP_SP
+L0219B:	CALL	L01286
+	JR	C,NONUM
+	LD	C,A
+	LD	A,(HL)
+	CALL	CK_SEP
+	JR	Z,UNDIG
+	JR	C,UNDIG
+	CALL	L01286
+	JR	C,NONUM
+	PUSH	AF
+	LD	A,C
+	ADD	A,A
+	ADD	A,A
+	ADD	A,C
+	ADD	A,A
+	LD	C,A
+	POP	AF
+	ADD	A,C
+	RET
+UNDIG:	LD	A,C
+	RET
+;
+NONUM:	LD	A,255
+	RET
+;
+L01286:	LD	A,(HL)
+	SUB	30H
+	RET	C
+	CP	0AH
+	CCF
+	RET	C
+	INC	HL
+	RET
+;
+;
+LINE_BUF:
+	DS	50H,0
+CMD_BUF:DB	0
+	DB	'        '
+	DB	0,0,0,0
+	DB	0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0
+RDBYT:	DB	0
+CF_FCB:	DB	0
+	DB	'CONFIG  SYS'
+	DB	0,0,0,0
+	DB	0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0
+;		 **** **** **** **** **** **** 
+CFERR:	DB	'CONFIG.SYS incorrecto !!!    '
+	DB	0DH,0AH,0DH,0AH,'$'
+;
+NOCONFIG:
+;
+; ************************************
+;
+	LD	HL,(TOP_MEM)
+	LD	L,0
+	LD	(TOP_MEM),HL
+	LD	HL,RU_TBL
+	LD	BC,RU_TBL-CODE
+	LD	C,0
+	INC	B
+	LD	DE,CODE
+	CALL	RELOC
+	LD	DE,LDENDMSG
+	CALL	L00317
+	LD	HL,(TOP_MEM)
+	JP	(HL)
+;
+RELOC:
+;
+; Reloca codigo
+;
+; Entrar con:
+;
+;  HL=puntero a tabla
+;  DE=codigo
+;  BC=long de codigo
+;
+;  CODIGO CON PHASE ZERO
+;  TABLA TAMBIEN
+;
+	PUSH	HL
+	LD	HL,(TOP_MEM)
+	OR	A
+	SBC	HL,BC
+	LD	(TOP_MEM),HL
+	POP	HL
+	PUSH	BC
+	LD	(CODEP),DE
+REL1:	LD	E,(HL)
+
+INC	HL
+	LD	D,(HL)
+	INC	HL
+	LD	A,D
+	OR	E
+	JR	Z,REL2
+	PUSH	HL
+	LD	HL,(CODEP)
+	ADD	HL,DE
+	LD	C,(HL)
+	INC	HL
+	LD	B,(HL)
+	EX	DE,HL
+	LD	HL,(TOP_MEM)
+	ADD	HL,BC
+	EX	DE,HL
+	LD	(HL),D
+	DEC	HL
+	LD	(HL),E
+	POP	HL
+	JR	REL1
+REL2:	POP	BC
+	LD	HL,(CODEP)
+	LD	DE,(TOP_MEM)
+	LDIR
+	RET
+;
+;
+L00317:	LD	A,(DE)
+	CP	'$'
+	RET	Z
+	PUSH	DE
+	LD	E,A
+	CALL	CON_IO
+	POP	DE
+	INC	DE
+	JR	L00317
+;
+
+TOP_MEM:DW	0
+CODEP:	DW	0
+;		 **** **** **** **** **** **** 
+LOADMSG:DB	'MSX-DOS 1.1  Rev.A   4-12-86  ',0DH,'$'
+LDENDMSG: DB	'                              ',0DH,'$'
+
+	NEXT
+
+	SUBTTL	Entrada - Inicializacion
+	PAGE
+CODE:
+	.PHASE	0
+
+ENTRA:	RLD	HL,L_ERRV
+	LD	(EX_ERRV),HL
+	RLD	HL,L_CTRC
+	LD	(EX_CTC),HL
+	LD	HL,NOT_FRS
+	LD	A,(HL)
+	LD	(HL),H
+	RLD	(LOC_NF),A
+	RJP	BOOT
+;
+	NEXT
+
+	SUBTTL	DOS Residente.
+	PAGE
+
+RESID:
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+
+LOW_ADR:RJP	DOS_CALL
+;
+L_ERRV:	RDW	ERROR
+	RDW	ERROR
+	RDW	ERROR
+	RDW	ERROR
+L_CTRC:	RDW	CTRLC
+L00413:	RDW	0406H
+L00415:	DW	0001H
+L00417:	DW	0FFFFH
+BAT_FL:	DB	00H
+LOC_NF:	DB	00H
+
+	NEXT
+
+	SUBTTL	Subrutina de error.
+	PAGE
+
+ERROR:
+	.COMMENT%
+
+ Rutina de procesamiento de errores.
+ Displaya mensaje acorde a codigo de entrada
+ y devuelve eleccion del operador (A,R o I)
+
+ ENTRAR CON:
+
+(Acc) = # de drive (0=A,1=B,etc)
+
+(C)=   76543210
+       |||||||+-- 0:Reading
+       |||||||    1:Writing
+       |||||||
+       ||||+++- 000:Write protected.
+       ||||     001:Not ready.
+       ||||     010:CRC error.
+       ||||     011:Seek error.
+       ||||	100:Record not found.
+       ||||     101:Write error.
+       ||||     110:Other error.
+       ||||
+       |+++------- Don't care.
+       |
+       +--------- 0:Normal error 
+                    see B1-B3
+                  1:Bad FAT.
+
+ SALE CON:
+
+	(C) = 0 - Ignore	    
+	      1 - Retry
+	      2 - Abort
+
+	%	
+
+	ADD	A,'A'
+	BIT	7,C
+	JR	NZ,L00561
+	RLD	(MSG_6D),A
+	RLD	HL,MSG_R
+	RLD	DE,MSG_6B
+	LD	A,C
+	BIT	0,A
+	LD	BC,0004H
+	JR	Z,L0051A
+	RLD	HL,MSG_W
+L0051A:	LDIR
+	CP	0AH
+	RLD	DE,MSG_4
+	PUSH	AF
+	JR	Z,L00535
+	AND	0FEH
+	RLD	DE,MSG_2
+	JR	Z,L00535
+	CP	02H
+	RLD	DE,MSG_3
+	JR	Z,L00535
+	RLD	DE,MSG_5
+L00535:	CALL	STR_OUT
+	RLD	DE,MSG_6
+	CALL	STR_OUT
+	POP	AF
+	LD	C,02H
+	RET	Z
+L00542:	RLD	DE,MSG_7
+	CALL	STR_OUT
+	CALL	CON_INP
+	PUSH	AF
+	CALL	5183H
+	POP	AF
+	AND	5FH
+	LD	C,00H
+	CP	'I'
+	RET	Z
+	INC	C
+	CP	'R'
+	RET	Z
+	INC	C
+	CP	'A'
+	RET	Z
+	JR	L00542
+;
+L00561:	RLD	(MSG_1D),A
+	RLD	DE,MSG_1
+	CALL	STR_OUT
+	LD	C,02H
+	RET
+
+	SUBTTL	CONTROL-C Rutina.
+	PAGE
+
+CTRLC:
+
+; Control-C routine
+
+	CALL	EN_PAGE
+	EI
+	RLD	SP,SP_AREA
+	LD	A,(0F23BH)
+	OR	A
+	JR	Z,L00587
+	LD	BC,04B0H
+L0057D:	PUSH	BC
+	CALL	543CH
+	POP	BC
+	DEC	BC
+	LD	A,C
+	OR	B
+	JR	NZ,L0057D
+L00587:	LD	A,03H
+	CALL	535DH
+	RLD	A,(BAT_FL)
+	OR	A
+	JR	Z,L005A9
+L00592:	RLD	DE,BAT_MSG
+	CALL	STR_OUT
+	CALL	CON_INP
+	AND	5FH
+	CP	'N'
+	JR	Z,L005A9
+	CP	'Y'
+	JR	NZ,L00592
+	XOR	A
+	RLD	(BAT_FL),A
+L005A9:	CALL	RS_PAGE
+	EI
+	JP	0000H
+;
+BOOT:	RLD	SP,SP_AREA
+	CALL	EN_PAGE
+	EI
+	RLD	HL,WB_JPT
+	LD	(0001H),HL
+	RLD	HL,LOW_ADR
+	LD	(0006H),HL
+	LD	A,0C3H
+	LD	(0000H),A
+	LD	(0005H),A
+	CALL	50A9H
+	RLD	HL,(L00413)
+	RLD	BC,(L00415)
+	LD	DE,0000H
+L005D8:	LD	A,(HL)
+	INC	HL
+	ADD	A,E
+	LD	E,A
+	LD	A,(HL)
+	INC	HL
+	ADC	A,D
+	LD	D,A
+	DEC	BC
+	LD	A,B
+	OR	C
+	JR	NZ,L005D8
+	RLD	HL,(L00417)
+	SBC	HL,DE
+	JR	NZ,L005F4
+	RLD	HL,(L00413)
+	CALL	RS_PAGE
+	EI
+	JP	(HL)
+;
+; Carga de COMMAND.COM
+;
+L005F4:	RLD	DE,COM_FCB
+	CALL	OPEN_F
+	OR	A
+	JR	Z,L00608
+L005FD:	RLD	DE,INS_MSG
+	CALL	STR_OUT
+	CALL	D_INPCK
+	JR	L005F4
+;
+L00608:	LD	HL,0000H
+	RLD	(COM_FCB+33),HL
+	RLD	(COM_FCB+35),HL
+	INC	HL
+	RLD	(COM_FCB+14),HL
+	LD	HL,0100H
+	LD	(DMA_ADR),HL
+	RLD	DE,COM_FCB
+	RLD	HL,<RESID-0100H>
+	CALL	RND_BRD
+	OR	A
+	JR	Z,L005FD
+	CALL	RS_PAGE
+	EI
+	JP	100H
+;
+NO_FNCT:XOR	A
+	LD	B,A
+	RET
+;
+DOS_CALL:
+	LD	A,01H
+	LD	(DC_FL),A
+	LD	A,C
+	CP	31H
+	JR	NC,NO_FNCT
+	LD	(SP_SAVE),SP
+	RLD	SP,SP_AREA
+	CP	11H
+	JR	NZ,L0064A
+	LD	(OLD_FCB),DE
+L0064A:	CP	12H
+	JR	NZ,L00652
+	LD	DE,(OLD_FCB)
+L00652:	PUSH	HL
+	RLD	HL,DOS_CALL_RET
+	EX	(SP),HL
+	PUSH	HL
+	RLD	HL,FN_TABL
+	LD	B,00H
+	ADD	HL,BC
+	ADD	HL,BC
+	ADD	HL,BC
+	LD	A,(HL)
+	INC	HL
+	LD	B,(HL)
+	INC	HL
+	LD	H,(HL)
+	LD	L,B
+	EX	(SP),HL
+	RLD	(COPY_CNT),A
+	OR	A
+	JR	Z,L00685
+	PUSH	HL
+	EX	DE,HL
+	RLD	(USR_FCB),HL
+	RLD	DE,FCB_BUF
+	LD	B,00H
+	LD	C,A
+	INC	A
+	JR	NZ,L0067F
+	LD	A,(HL)
+	LD	C,A
+	INC	BC
+	INC	BC
+L0067F:	LDIR
+	POP	HL
+	RLD	DE,FCB_BUF
+L00685:	CALL	EN_PAGE
+	EI
+	RET
+;
+DOS_CALL_RET:
+	PUSH	AF
+	CALL	RS_PAGE
+	EI
+	RLD	A,(COPY_CNT)
+	OR	A
+	JR	Z,L006AA
+	LD	C,A
+	LD	B,00H
+	PUSH	HL
+	RLD	DE,(USR_FCB)
+	RLD	HL,FCB_BUF
+	INC	A
+	JR	NZ,L006A7
+	LD	A,(DE)
+	LD	C,A
+	INC	BC
+	INC	BC
+L006A7:	LDIR
+	POP	HL
+L006AA:	LD	A,(DC_FL)
+	OR	A
+	JR	Z,L006B8
+	POP	AF
+	LD	L,A
+	LD	H,B
+	LD	SP,(SP_SAVE)
+	RET
+;
+L006B8:	POP	AF
+	LD	SP,(SP_SAVE)
+	RET
+
+	SUBTTL	DOS function dispatch table.
+	PAGE
+
+;
+FN_TABL:
+	.COMMENT%
+
+ DOS CALLS DISPATCH TABLE
+
+ El primer byte indica la cantidad de 
+ caracteres que se copian de la zona punteada
+ por DE.
+ Puede ser un FCB o un mensaje.
+
+ Los dos siguentes la direccion de entrada.
+
+	%
+
+; 0
+	DB	0
+	DW	0
+; 1
+	DB	0
+	DW	CON_INP
+; 2
+	DB	0
+	DW	CON_OUP
+; 3
+	DB	0
+	DW	AUX_INP
+; 4
+	DB	0
+	DW	AUX_OUT
+; 5
+	DB	0
+	DW	LST_OUT
+; 6
+	DB	0
+	DW	CON_IO
+; 7
+	DB	0
+	DW	D_INPNC
+; 8
+	DB	0
+	DW	D_INPCK
+; 9
+	DB	0
+	DW	STR_OUT
+; 0A
+	DB	0FFH
+	DW	BUF_INP
+; 0B
+	DB	0
+	DW	CON_STA
+; 0C
+	DB	0
+	DW	GET_VER
+; 0D
+	DB	0
+	DW	DSK_RST
+; 0E
+	DB	0
+	DW	SLT_DSK
+; 0F
+	DB	20H
+	DW	OPEN_F
+; 10
+	DB	20H
+	DW	CLOSE_F
+; 11
+	DB	0FH
+	DW	SRCH_FR
+; 12
+	DB	0FH
+	DW	SRCH_NX
+; 13
+	DB	20H
+	DW	DEL_F
+; 14
+	DB	21H
+	DW	SEQ_RD
+; 15
+	DB	21H
+	DW	SEQ_WR
+; 16
+	DB	20H
+	DW	CREAT_F
+; 17
+	DB	20H
+	DW	REN_F
+; 18
+	DB	0
+	DW	GET_ONL
+; 19
+	DB	0
+	DW	G_DFDRV
+; 1A
+	DB	0
+	DW	SET_DMA
+; 1B
+	DB	0
+	DW	GET_ALL
+; 1C
+	DB	0
+	RDW	NO_FNCT
+; 1D
+	DB	0
+	RDW	NO_FNCT
+; 1E
+	DB	0
+	RDW	NO_FNCT
+; 1F
+	DB	0
+	RDW	NO_FNCT
+; 20
+	DB	0
+	RDW	NO_FNCT
+; 21
+	DB	24H
+	DW	RND_RD
+; 22
+	DB	24H
+	DW	RND_WR
+; 23
+	DB	24H
+	DW	G_FLSIZ
+; 24
+	DB	24H
+	DW	S_RNDRC
+; 25
+	DB	0
+	RDW	NO_FNCT
+; 26
+	DB	25H
+	DW	RND_BWR
+; 27
+	DB	25H
+	DW	RND_BRD
+; 28
+	DB	24
+	DW	RN_WRZF
+; 29
+	DB	0
+	RDW	NO_FNCT
+; 2A
+	DB	0
+	DW	GET_DAT
+; 2B
+	DB	0
+	DW	SET_DAT
+; 2C
+	DB	0
+	DW	GET_TIM
+; 2D
+	DB	0
+	DW	SET_TIM
+; 2E
+	DB	0
+	DW	FL_VRFY
+; 2F
+	DB	0
+	DW	ABS_RD
+; 30
+	DB	0
+	DW	ABS_WR
+
+	SUBTTL	Mensajes.
+	PAGE
+
+BAT_MSG:
+	DB	0DH,0AH
+	DB	'Terminate batch file (Y/N)? '
+	DB	'$'
+
+INS_MSG:
+	DB	0DH,0AH
+	DB	'Insert DOS disk in default drive'
+	DB	0DH,0AH
+	DB	'and strike any key when ready'
+	DB	0DH,0AH,'$'
+
+MSG_1:	DB	0DH,0AH
+	DB	'Bad FAT, drive '
+MSG_1D:	DB	'A',0DH,0AH,'$'
+
+MSG_R:	DB	'read'
+MSG_W:	DB	'writ'
+
+MSG_2:	DB	0DH,0AH
+	DB	'Write protect','$'
+
+MSG_3:	DB	0DH,0AH
+	DB	'Not ready','$'
+
+MSG_4:	DB	0DH,0AH
+	DB	'Unsupported media type','$'
+
+MSG_5:	DB	0DH,0AH
+	DB	'Disk','$'
+
+MSG_6:	DB	' error '
+MSG_6B:	DB	'reading drive '
+MSG_6D:	DB	'A',0DH,0AH,'$'
+
+MSG_7:	DB	'Abort, Retry, Ignore? ','$'
+
+COPY_CNT:
+	DB	0
+USR_FCB:
+	DW	0
+FCB_BUF:
+	NEXT	
+	DS	100H
+SP_AREA:
+
+	SUBTTL	CP/M Front end.
+	PAGE
+
+; CP/M JUMP TABLE
+
+	RJP	BOOT
+WB_JPT:	RJP	BOOT
+	RJP	CONST
+	RJP	CONSIN
+	RJP	CONOUT
+	RJP	LPOUT
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	DUMMY
+	RJP	LISTS
+;
+CONST:	LD	(SP_SAVE),SP
+	RLD	SP,SP_AREA
+	CALL	EN_PAGE
+	EI
+	CALL	4034H
+	PUSH	AF
+	CALL	RS_PAGE
+	EI
+	POP	AF
+	LD	SP,(SP_SAVE)
+	LD	A,00H
+	RET	Z
+	DEC	A
+	RET
+;
+CONSIN:	LD	(SP_SAVE),SP
+	RLD	SP,SP_AREA
+	CALL	EN_PAGE
+	EI
+	CALL	4078H
+	CALL	RS_PAGE
+	EI
+	LD	SP,(SP_SAVE)
+	RET
+;
+CONOUT:	LD	A,C
+	LD	(SP_SAVE),SP
+	RLD	SP,SP_AREA
+	CALL	EN_PAGE
+	EI
+	CALL	408FH
+	CALL	RS_PAGE
+	EI
+	LD	SP,(SP_SAVE)
+	RET
+
+LPOUT:
+	LD	(SP_SAVE),SP
+	RLD	SP,SP_AREA
+	CALL	EN_PAGE
+	EI
+	LD	E,C
+	CALL	LST_OUT
+	PUSH	AF
+	CALL	RS_PAGE
+	POP	AF
+	EI
+	LD	SP,(SP_SAVE)
+	RET
+
+LISTS:
+	XOR	A
+	RET
+
+DUMMY:
+	XOR	A
+	RET
+
+;
+COM_FCB:
+	DB	0
+	DB	'COMMAND COM'
+	DB	0,0,0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0
+
+
+	IF1
+	.PRINTX	*                       *
+	.PRINTX *  Primera pasada Ok.   *
+ 	.PRINTX	*                       *
+	ENDIF
+
+	IF2
+	.PRINTX *  Segunda pasada Ok.   *
+	.PRINTX	*                       *
+	ENDIF
+
+	.DEPHASE
+MKP_2	ASET	1
+
+RU_TBL:	REPT	MK_COU-1
+	DDWW	%(MKP_2)
+
+MKP_2	ASET	MKP_2+1
+	ENDM
+	DW	0
+FIN:
+
+	END	INIT
+
+

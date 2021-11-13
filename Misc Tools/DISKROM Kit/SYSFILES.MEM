@@ -1,0 +1,297 @@
+************************************************************************
+ Following notes are the changes made to the the MSX-DOS system	files.
+************************************************************************
+
+COMMAND.COM (version 1.01)
+
+	Fixed the problem that	file  concatenation  got  "write  error"
+	message	and never performed.
+
+							October	12, 1984
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.02)
+
+	Fixed the problem that command hanged when non-blank separators,
+	such as	commas,	semicolons etc., were  used  for  batch	 command
+	parameters.
+
+						       November	14, 1984
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.03)
+
+	Fixed the  problem  that  DOS  did not reboot after MACRO-80 has
+	been terminated.
+
+						       December	15, 1984
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.04)
+
+	This version was in-house review only, and was not released.
+
+COMMAND.COM (version 1.05)
+
+	Fixed the problem that the cursor was  disappeared  in	some  of
+	the application.
+	This was because command  processor  did  not  care  the  cursor
+	status when  control  was  returned  from  the	application.  To
+	fix this problem, it was changed to  turn  the	cursor	on  just
+	before passing control to the application.
+
+	[NOTE]
+		Application programs   can  control  the  cursor  status
+		by sending following escape sequences to the console.
+		ESC+"y5" will turn on the cursor, and
+		ESC+"x5" will turn off the cursor.
+
+	The current date  displayed  by	 the  "DATE"  command  has  been
+	changed	to  fit	 into  single  line  by	 removing "centuries" of
+	the year string.  The change was made to the  Japanese	version.
+	Previously this	 message  had  wrapped to the next line, and was
+	very unreadable.
+
+							January	29, 1985
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.06)
+
+	Fixed the problem of  version  1.05  that  the	escape	sequence
+	to turn	the cursor on was also echoed to the printer.
+
+	Fixed the problem of "DIR /P" command that the first  file  name
+	was scrolled  off  the	screen	when  the  console width was set
+	to 30 columns or less.	The prompt for the next	page was wrapped
+	to the second line.
+
+	Fixed the  problem  of "DIR" command that columns of the printer
+	output was not aligned.	 "DIR" command bypassed output of  CR-LF
+	when the  line was automatically wrapped to the	next line.  When
+	this was echoed	to the printer,	 consective  lines  were  joined
+	together.
+
+						       February	21, 1985
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.07)
+
+	Accepts	codes 80h to FEh  as  file  name  characters  from  this
+	version.  They	are Hiragana and Katakana characters in	Japanese
+	version.
+
+	Fixed the problem of "DIR  /W"  command  of  version  1.05  that
+	the tab	 position  was	not  aligned for the first line.  Escape
+	sequences to turn on/off the cursor was	 also  counted	for  tab
+	position management.
+
+						       February	28, 1985
+------------------------------------------------------------------------
+
+MSXDOS.SYS (version 1.01)
+
+	The disk error handling	procedure was improved.
+
+	There was a danger that	a  disk	 being	damaged,  if,  the  disk
+	was a  non-MSX-DOS format (such	as CP/M), an disk error	occurred
+	and "Ignore" was selected.
+
+	To handle this case, changes have been made  to	 the  MSXDOS.SYS
+	to display  "Unsupported  media  type"  and "Abort" the process,
+	If disk	driver detects illegal format.
+
+							   March 7, 1985
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.08)
+
+	Fixed  the  problem  of	 COPY  command	that  "Write  error" was
+	displayed while	 copying  multiple  files.   The  copy	had been
+	aborted	in the middle.
+
+							  March	24, 1985
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.09)
+
+	Fixed the COPY command problem that when you try;
+
+		COPY A:TEST A:TEST
+
+	old COMMAND.COM	 read  that  file  and	wrote the file into same
+	disk.  This should have	been detected as
+
+		File cannot be copied onto itself
+		       0 files copied
+
+							  April	30, 1985
+------------------------------------------------------------------------
+
+MSXDOS.SYS (version 1.02)
+
+	Fixed the problem that disk error handler  ran	away  when  long
+	batch command was entered.
+
+	When invoking batch, if	the batch parameter was	very long (about
+	70 bytes), it destroyed	MSXDOS disk error handler  code.   There
+	was not	enough space for batch parameters.
+
+	New version  will  allow  batch	 parameters even if they fill up
+	entire command line.
+
+
+COMMAND.COM (version 1.10)
+
+	Added support  for  80	columns	 display of MSX2.
+
+		"MODE" command  parameter  now  allows up to 80 columns.
+
+	Fixed the problem of copying files onto	itself finally.
+
+		Version	1.09 of	 command  still	 could	not  detect  the
+		cases like:
+
+			COPY *.*
+
+		and files  were	 read  in  and	written	back in	the same
+		place and sometimes got	truncated.
+
+	Fixed the problem when appending binary	files.
+
+		In the version 1.09 of command,	appending binary  files,
+		sometimes got  incorrect  data in ABC.BIN, and sometimes
+		got "Insufficient disk space" error message.
+
+		This problem  was  hidden  until  version  1.09	began to
+		handle append properly.	  Previous  versions  never  did
+		"append".
+
+	Fixed the problem when concatenating ASCII files.
+
+		In ASCII  mode	copy,  there were cases	that source file
+		was not	cut  off  at  first  control-Z.	  This	occurred
+		when the file size was multiple	of 256.
+
+		There may  be  no  problem for copying single files, but
+		when the  files	 were  concatenated,  this  would  cause
+		unwanted   end-of-file	 and  rest  of	the  data  after
+		control-Z would	not read.
+
+	Fixed the problem when copying null file.
+
+		In the	previous  version  of  command,	 when the source
+		file was size was 0, destination file was  not	written,
+		though there  appeared the message that	file was copied.
+
+	Fixed the problem of batch files with very long	line.
+
+		While processing  batch,  there	 were  chances	that the
+		command	line exceeded internal buffer  (after  parameter
+		substitution, or  batch	 file  itself  had  longe lines)
+		and destroy other internal work	areas.
+
+		New version  will  check  the  size  of	the command line
+		and ignore excessive characters.
+
+	[KNOWN BUGS]
+		If the	command	 line  with  many  many	 parameters  was
+		entered	to  invoke  batch  file, say, full of separators
+		with many many "null" parameters, it will still  destroy
+		MSXDOS.
+
+		Version	1.10 assumes MSXDOS.SYS	version	1.02  or  later,
+		and uses  up  all the spaces for batch parameters.  When
+		combined with version 1.00 or  1.01  of	 MSXDOS.SYS,  it
+		cause system crush, by executing BATCH command.
+
+							   July	21, 1985
+------------------------------------------------------------------------
+
+MSXDOS.SYS (version 1.03)
+
+	when printer does not exist and	 control-P  is	pressed,  system
+	hangs waiting for printer ready.
+
+	Only control-stop  can	force  BIOS  to	 exit printer wait loop.
+	But any	characters including control-N	are  thrown  away  while
+	control-STOP is	 depressed,  and trying	to echo	"^C", DOS enters
+	wait loop again.  This is a ROM	BIOS problem.
+
+	This fix trys to cover this situation;	this  will  wait  enough
+	time for auto-repeat to	occur and then echo "^C".
+
+	Recovery action	should be:
+
+	(a) Hold down [CTRL] and [N].
+	(b) Press [STOP].
+	(c) Still holding [CTRL] and [N], release [STOP].
+
+
+COMMAND.COM (version 1.11)
+
+	Fixed the bug of version 1.10 that it forgets to load the latter
+	half of	the *.COM file when the	file  size  is	lager  than  22k
+	bytes.	Nothing	was loaded after address 58FFH.
+
+	Fixed the bug, known in	version	1.10, that caused  system  crash
+	when there  were  many	many  batch  parameters.   And fixed the
+	incompatibility	 of  version  1.10  with  the  old  version   of
+	MSXDOS.SYS (1.00 or 1.01).
+
+	[NOTE]
+		This is	a  summary  of	system	crash  possibility  when
+		the batch  command is entered.	number(s) in parenthesis
+		are;
+
+		1. When	the command line is longer than	70 bytes.
+		2. When	the line in batch file is longer than 128 bytes.
+		3. When	number of batch	parameters is more than	64.
+
+						  MSXDOS.SYS
+
+					 1.00 or 1.01	 1.02 or later
+				       +---------------+---------------+
+			 1.00 to 1.09  | maybe (1,2,3) | maybe (2,3)   |
+				       +---------------+---------------+
+		COMMAND.COM	 1.10  | always	       | maybe (3)     |
+				       +---------------+---------------+
+			 1.11 or later | maybe (1)     | never	       |
+				       +---------------+---------------+
+
+	Changed	the message timing when	multiple files are copied.
+
+		When dual drive	simulator is active, commands like;
+
+			A>COPY *.* B:
+
+		displayed message sequences like;
+
+			FOO1	 DAT		   (FOO1.DAT was found)
+			FOO2	 DAT		   (FOO2.DAT was found)
+			Insert diskette	for drive B:
+			and strike a key when ready
+			FOO3	 DAT		   (FOO3.DAT was found?)
+			Insert diskette	for drive A:
+			and strike a key when ready
+			FOO4	 DAT		   (FOO4.DAT was found)
+
+		It looked  as  if  FOO3.DAT  was  found	 while	drive  B
+		diskette was  inserted.	 Though	this was not true, there
+		was some uneasiness in this sequence.
+
+							    Aug	23, 1985
+------------------------------------------------------------------------
+
+COMMAND.COM (version 1.11)
+
+	Fixed the bug of version 1.10 that file(s)  get	 mixed	up  when
+	other  files  are  appended  to	 it  by	 "COPY"  command  with a
+	(default) switch "/A".  Append was successful, but original data
+	was lost.
+
+[NOTE]
+To fix	above  problem,	 shipment  of August 23	version	has been stopped
+in the middle.
+
+						      September	 2, 1985
+

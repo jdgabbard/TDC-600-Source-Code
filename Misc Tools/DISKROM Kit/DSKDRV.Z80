@@ -1,0 +1,1620 @@
+	TITLE   DSKDRV - MSXDOS disk driver for 2 drive hardware -
+;
+;       Following   disk   driver  is  for  WD179X  series  floppy  disk
+;       controllers or equivalent.  Smart enough to  detect  'drive  not
+;       ready' even  if  the hardware does not support it.  Can transfer
+;       128 Kbytes in 6 seconds because  the  overhead  is  set  to  the
+;       minimum possible time.
+;
+;       For hardware  which  has  images of FDC to help transfer to/from
+;       RAM at 4000H..7FFFH.
+;
+;       This module is placed somewhere between 6000H and 7FFFH.
+;
+;       By Hitoshi Suzuki (ASCII Microsoft)
+;
+;       As of Mar 22nd, 1984
+;
+;       Fix expanded slot problem on 28th May, 1985
+;       using switch EXPBUG
+;
+	.Z80
+EXPBUG  EQU     1                       ; fix extended slot problem
+;
+;       MSX system specific constants
+;
+CR      EQU     0DH
+LF      EQU     0AH
+;
+;       external symbols
+;
+	EXTRN   PROMPT
+	EXTRN   GETSLOT         ;get slot  address  (i.e.,  where  I am)
+				;in [A]
+	EXTRN   GETWRK          ;get base  of  work  area  in  [IX]  and
+				;[HL]
+	EXTRN   DIV16           ;[BC] =  [BC]/[DE],  remainder  in  [HL]
+	EXTRN   XFER            ;block transfer routine
+	EXTRN   $SECBUF         ;pointer to  sector  buffer for physical
+				;driver
+	EXTRN   RAMAD0,RAMAD1,RAMAD2,RAMAD3
+	EXTRN   ENASLT
+	EXTRN   RAWFLG          ;read after write flag
+	EXTRN   SETINT,PRVINT
+	EXTRN   DISINT,ENAINT
+	IF      EXPBUG
+	EXTRN	$DOSON
+	ENDIF                   ; IF EXPBUG
+;
+;       definition of my own work area (offset from top)
+;
+MOTCNT  EQU     0               ;motor stop counter
+LAST0   EQU     1               ;last access counter for drive 0
+LAST1   EQU     2               ;last access counter for drive 1
+CURDRV  EQU     3               ;currently selected drive (physical)
+TRACK0  EQU     4               ;head position for drive 0
+TRACK1  EQU     5               ;head position for drive 1
+PRVDRV  EQU     6               ;previously specified drive
+PHYDRV  EQU     7               ;number of physical drives
+;
+WRKLEN  EQU     7+1
+;
+;       symbols internally defined
+;
+	PUBLIC  MYSIZE
+MYSIZE  EQU     WRKLEN          ;work area size for this cartridge
+;
+	PUBLIC  SECLEN
+SECLEN  EQU     512             ;maximum sector size supported  by  this
+				;cartridge
+;
+$$DRIVE::
+;
+;       drive parameters supported by this cartridge
+;
+DPBTBL:
+;
+;       single side, 9 sectors
+;
+DPBFC:  DEFB    0FCH            ;MEDIA
+	DEFW    512             ;SECSIZ
+	DEFB    00001111B       ;DIRMSK
+	DEFB    4               ;DIRSHFT
+	DEFB    0               ;CLUSMSK
+	DEFB    1               ;CLUSSHFT
+	DEFW    1               ;FIRFAT
+	DEFB    2               ;FATCNT
+	DEFB    64              ;MAXENT
+	DEFW    9               ;FIRREC
+	DEFW    352             ;MAXCLUS
+	DEFB    2               ;FATSIZ
+	DEFW    5               ;FIRDIR
+;
+;       double side, 9 sectors
+;
+DPBFD:  DEFB    0FDH            ;MEDIA
+	DEFW    512             ;SECSIZ
+	DEFB    00001111B       ;DIRMSK
+	DEFB    4               ;DIRSHFT
+	DEFB    1               ;CLUSMSK
+	DEFB    2               ;CLUSSHFT
+	DEFW    1               ;FIRFAT
+	DEFB    2               ;FATCNT
+	DEFB    112             ;MAXENT
+	DEFW    12              ;FIRREC
+	DEFW    355             ;MAXCLUS
+	DEFB    2               ;FATSIZ
+	DEFW    5               ;FIRDIR
+;
+;       single side, 8 sectors
+;
+DPBFE:  DEFB    0FEH            ;MEDIA
+	DEFW    512             ;SECSIZ
+	DEFB    00001111B       ;DIRMSK
+	DEFB    4               ;DIRSHFT
+	DEFB    0               ;CLUSMSK
+	DEFB    1               ;CLUSSHFT
+	DEFW    1               ;FIRFAT
+	DEFB    2               ;FATCNT
+	DEFB    64              ;MAXENT
+	DEFW    7               ;FIRREC
+	DEFW    314             ;MAXCLUS
+	DEFB    1               ;FATSIZ
+	DEFW    3               ;FIRDIR
+;
+;       double side, 8 sectors
+;
+DPBFF:  DEFB    0FFH            ;MEDIA
+	DEFW    512             ;SECSIZ
+	DEFB    00001111B       ;DIRMSK
+	DEFB    4               ;DIRSHFT
+	DEFB    1               ;CLUSMSK
+	DEFB    2               ;CLUSSHFT
+	DEFW    1               ;FIRFAT
+	DEFB    2               ;FATCNT
+	DEFB    112             ;MAXENT
+	DEFW    10              ;FIRREC
+	DEFW    316             ;MAXCLUS
+	DEFB    1               ;FATSIZ
+	DEFW    3               ;FIRDIR
+;
+;       default drive parameter for this cartridge
+;
+	PUBLIC  DEFDPB
+DEFDPB  EQU     DPBFC
+;
+;       drive capability definition
+;
+STEP_RATE       EQU     00B     ;stepping motor rate
+MOTOR_TIME      EQU     4*60    ;time to stop the motor
+USER_TIME       EQU     2*60    ;time within  which  the  user  may  not
+				;be able to change disks
+RETRIES         EQU     21      ;number of  retries  (better   be   odd)
+;
+;       Command definition
+;
+FORCE_CMD       EQU     11010000B               ;force ready command
+RESTORE_CMD     EQU     00000000B+STEP_RATE     ;restore command
+STEPIN_CMD      EQU     01010000B+STEP_RATE     ;step-in command
+SEEK_CMD        EQU     00010000B+STEP_RATE     ;seek command
+READ_CMD        EQU     10000000B               ;sector read command
+WRITE_CMD       EQU     10100000B               ;sector write command
+;
+;       I/O port definition
+;
+FD_STT  EQU     7FB8H           ;FDC status
+FD_CMD  EQU     7FB8H           ;FDC command
+FD_TRK  EQU     7FB9H           ;FDC track register
+FD_SEC  EQU     7FBAH           ;FDC sector register
+FD_DAT  EQU     7FBBH           ;FDC data register
+FD_SEL  EQU     7FBCH           ;motor, side select, drive select register
+FD_REQ  EQU     7FBCH           ;DRQ and IRQ status
+;
+;       Error condition definition
+;
+;               write sector
+;
+;                     NPWRCLxx
+;                     ||||||
+;                     |||||+--- lost data
+;                     ||||+---- CRC error
+;                     |||+----- record not found
+;                     ||+------ write fault
+;                     |+------- protected
+;                     +-------- not ready
+;
+;               read sector
+;
+;                     NxxRCLxx
+;                     |  |||
+;                     |  ||+--- lost data
+;                     |  |+---- CRC error
+;                     |  +----- record not found
+;                     |
+;                     |
+;                     +-------- not ready
+;
+;       FD_SEL definition
+;
+;                     xxxxMS10
+;                         ||||
+;                         |||+--- enable drive 0
+;                         ||+---- enable drive 1
+;                         |+----- select side
+;                         +------ motor on
+;
+;       FD_REQ definition
+;
+;                     IDxxxxxx
+;                     ||
+;                     |+--------- 0 when data ready/requested
+;                     +---------- 1 when interrupt requested
+;
+
+	SUBTTL  write
+
+;
+;       DSKIO entry
+;
+	PUBLIC  DSKIO
+DSKIO:
+	EI                      ;make sure interrupt is enabled
+	PUSH    AF              ;remember specified drive number
+	JP      NC,READ         ;if no carry, we should read
+;
+;       Write a sector
+;
+; inputs:
+;       [A]  = drive number ( 0 based )
+;       [B]  = sector count to write
+;       [C]  = media descriptor
+;
+;               0FEH    8 sectors, single side
+;               0FCH    9 sectors, single side
+;               0FFH    8 sectors, double side
+;               0FDH    9 sectors, double side
+;
+;       [DE] = logical sector number
+;       [HL] = transfer address
+;
+; outputs:
+;       if successful, return with carry flag reset
+;       otherwise,     return with carry flag set,
+;                      error code in [A],
+;                      number of sectors remaining in [B]
+;
+;       AF, BC, DE and HL can be modified
+;
+	CALL    WRMAIN                  ;perform write operation
+RWEND:  POP     DE                      ;restore specified drive number to [B]
+	PUSH    AF                      ;save returned status
+	LD      C,USER_TIME             ;assume no errors detected
+	JR      NC,NOERR                ;good assumption
+	LD      C,0                     ;error detected,  do  not   take
+					;this as 'disk access'
+NOERR:  LD      A,FORCE_CMD             ;always force FDC to ready state
+	LD      (FD_CMD),A
+	EX      (SP),HL
+	EX      (SP),HL
+	EX      (SP),HL
+	EX      (SP),HL
+	LD      A,(FD_DAT)              ;clear possible DRQ or INTR
+	LD      A,(FD_STT)
+	LD      (IX+MOTCNT),MOTOR_TIME  ;tell interrupt    handler    to
+					;stop the motor after MOTOR_TIME
+	LD      A,D                     ;which drive has been accessed?
+	AND     A
+	JR      NZ,RWEND1               ;drive 1
+	LD      (IX+LAST0),C            ;say disk access  just  occurred
+					;on drive 0
+	POP     AF                      ;restore returned status
+	RET
+;
+RWEND1: LD      (IX+LAST1),C            ;say disk  access  just occurred
+					;on drive 1
+	POP     AF                      ;restore returned status
+	RET
+;
+WRMAIN: CALL    SELDRV          ;Select drive, track and sector
+	RET     C
+;
+;       register usage:
+;
+;       [B]     sector counter
+;       [C]     current track
+;       [D]     current status of FD_SEL in lower 4 bits
+;               bit 7 set if 8 sectors, reset if 9 sectors
+;               bit 6 set if double side, reset if single side
+;       [HL]    target address
+;
+	LD      A,H
+	AND     A               ;write from RAM above 8000H?
+	JP      M,WRITE_DIRECT  ;yes, write directly
+	CALL    WR_RELOCATE     ;relocate for write operation
+	CALL    JP_$SECBUF      ;call relocated code
+	RET     C               ;write error
+	INC     B               ;done all sectors?
+	DEC     B
+	RET     Z               ;yes
+	LD      A,H
+	AND     A               ;write from RAM above 8000H?
+	JP      M,WRITE_DIRECT  ;yes, write directly
+;
+;       Here when we cannot write directly
+;
+	PUSH    HL              ;save real target address
+	PUSH    DE              ;save FD_SEL content
+	PUSH    BC              ;save sector count and media type
+	LD      DE,($SECBUF)    ;move target to $SECBUF
+	PUSH    DE
+	LD      BC,512
+	CALL    XFER
+	POP     HL              ;restore address of $SECBUF
+	POP     BC              ;restore parameters
+	POP     DE
+	CALL    WRSECT          ;write a sector from $SECBUF
+	POP     HL              ;restore real target address
+	JP      MORE_WRITE
+;
+;       Here when we can write directly from the source RAM
+;
+WRITE_DIRECT:
+	CALL    WRSECT
+MORE_WRITE:
+	RET     C               ;write error
+	DEC     B               ;done with all sectors specified?
+	RET     Z               ;yes, return with carry flag reset
+	CALL    UPDATE          ;prepare for next write
+	JP      WRITE_DIRECT    ;go and write next sector
+;
+;       Routine which actually performs write operation
+;
+;       [E]     retry counter
+;
+WRSECT: LD      E,RETRIES       ;set retry count
+WRRTRY: CALL    BSYCHK          ;make sure FDC is ready for command
+	LD      A,WRITE_CMD     ;sector write command
+	BIT     6,D             ;single sided disk?
+	JR      Z,WRITE2        ;yes
+	OR      00000010B       ;enable side compare flag
+	BIT     2,D             ;which side are we dealing with?
+	JR      Z,WRITE2        ;side 0
+	OR      00001000B       ;compare for side 1
+WRITE2: PUSH    HL              ;save target address
+	PUSH    DE              ;save FD_SEL content and retry count
+	PUSH    BC              ;save sector count and target track
+	LD      DE,WRDONE       ;set where to jump when done
+	PUSH    DE
+	CALL    DISINT
+	DI
+	LD      (FD_CMD),A      ;issue write command
+	LD      BC,FD_REQ
+	LD      DE,FD_DAT
+WRLOOP: LD      A,(BC)          ;read data request port
+	ADD     A,A
+	RET     C               ;write confirmed
+	JP      M,WRLOOP        ;no data requested
+	LD      A,(HL)          ;get from target address
+	LD      (DE),A          ;write to FDC's data register
+	INC     HL              ;bump address pointer
+	JP      WRLOOP
+;
+WRDONE: POP     BC              ;restore sector count and target track
+	POP     DE              ;restore current FD_SEL and retry count
+	POP     HL              ;restore target address
+	EI
+	CALL    ENAINT
+	LD      A,(FD_STT)
+	AND     11111100B       ;not ready         or
+				;write protect     or
+				;write fault       or
+				;record not found  or
+				;CRC error         or
+				;lost data         ?
+	RET     Z               ;no, return with carry flag reset
+	JP      M,WRITE_NOTRDY  ;not ready, do not retry  (this  is  not
+				;likely to happen)
+	BIT     6,A             ;write protect?
+	JR      NZ,WRTPRT       ;yes, do not retry
+;
+;       here when retry might be necessary
+;
+	PUSH    AF              ;save error code
+	CALL    RESEEK          ;restore and re-seek head if necessary
+	POP     AF              ;restore error code
+	DEC     E               ;should retry?
+	JR      NZ,WRRTRY       ;yes
+;
+;       no more retries, report errors to the caller
+;
+	SCF                     ;set carry to indicate error occurred
+	LD      E,A             ;move error status to [E]
+	BIT     5,E             ;write fault?
+	LD      A,10
+	RET     NZ              ;yes
+	BIT     4,E             ;record not found?
+	LD      A,8
+	RET     NZ              ;yes
+	BIT     3,E             ;CRC error?
+	LD      A,4
+	RET     NZ              ;yes
+	LD      A,12            ;treat as 'other error'
+	RET
+;
+;       here when  'write  protected'  error  occurred.   But we are not
+;       yet sure this is really 'write  protected'  error  because  when
+;       no disk is inserted, the FDC reports the same result.
+;
+WRTPRT: LD      A,FORCE_CMD     ;terminate write command
+	LD      (FD_CMD),A
+	EX      (SP),HL
+	EX      (SP),HL
+	LD      A,READ_CMD      ;issue read command
+	LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      HL,FD_REQ
+	LD      DE,0
+WRPRT1: LD      A,(HL)          ;get requests
+	ADD     A,A
+	JR      C,DSKRDY        ;read confirmed, disk is ready
+	JP      P,DSKRDY        ;data ready, disk is ready
+	DEC     DE              ;need to wait more?
+	LD      A,E
+	OR      D
+	JP      NZ,WRPRT1       ;yes
+;
+;       here when 'not-ready' error occurred
+;
+WRITE_NOTRDY:
+	LD      A,2             ;ID for 'drive not ready'
+	SCF
+	RET
+;
+;       FDC responded to read command, disk is surely inserted
+;
+DSKRDY: XOR     A               ;ID for 'disk write protected'
+	SCF
+	RET
+
+	SUBTTL  read
+
+;
+;       Read sectors
+;
+; inputs:
+;       [A]  = drive number ( 0 based )
+;       [B]  = sector count to read
+;       [C]  = media descriptor
+;
+;               0FEH    8 sectors, single side
+;               0FCH    9 sectors, single side
+;               0FFH    8 sectors, double side
+;               0FDH    9 sectors, double side
+;
+;       [DE] = logical sector number
+;       [HL] = transfer address
+;
+; outputs:
+;       if successful, return with carry flag reset
+;       otherwise,     return with carry flag set,
+;                      error code in [A],
+;                      number of sectors remaining in [B]
+;
+;       AF, BC, DE and HL can be modified
+;
+READ:   CALL    RDMAIN          ;perform read operation
+	JP      RWEND           ;force FDC to ready state, etc.
+;
+RDMAIN: CALL    SELDRV          ;select drive, track and sector
+	RET     C
+;
+;       register usage:
+;
+;       [B]     sector counter
+;       [C]     current track
+;       [D]     current status of FD_SEL in lower 4 bits
+;               bit 7 set if 8 sectors, reset if 9 sectors
+;               bit 6 set if double side, reset if single side
+;       [HL]    target address
+;
+	LD      A,H
+	AND     A               ;read to RAM above 8000H?
+	JP      M,READ_DIRECT   ;yes, read directly to destination
+	CALL    RD_RELOCATE     ;relocate for read operation
+	CALL    JP_$SECBUF      ;call relocated code
+	RET     C               ;read error
+	INC     B               ;done all sectors?
+	DEC     B
+	RET     Z               ;yes
+	LD      A,H
+	AND     A               ;read to RAM above 8000H?
+	JP      M,READ_DIRECT   ;yes, read directly to destination
+;
+;       Here when we cannot read directly to the destination RAM
+;
+	PUSH    HL              ;save real target address
+	LD      HL,($SECBUF)
+	CALL    RDSECT          ;read a sector to $SECBUF
+	POP     HL              ;restore real target address
+	RET     C               ;read error
+	PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	EX      DE,HL           ;move target address to [DE]
+	LD      HL,($SECBUF)
+	LD      BC,512
+	CALL    XFER
+	POP     BC              ;restore parameters
+	POP     DE
+	POP     HL
+	AND     A               ;make sure carry is cleared
+	JP      MORE_READ
+;
+;       Here when we can read directly to the destination RAM
+;
+READ_DIRECT:
+	CALL    RDSECT
+	RET     C               ;read error
+MORE_READ:
+	DEC     B               ;done with all sectors specified?
+	RET     Z               ;yes, return with carry flag reset
+	CALL    UPDATE          ;prepare for next read
+	JP      READ_DIRECT     ;go and read next sector
+;
+;       Routine which actually performs read operation
+;
+;       [E]     retry counter
+;
+RDSECT: LD      E,RETRIES       ;set retry count
+RDRTRY: CALL    BSYCHK          ;make sure FDC is ready for command
+	LD      A,READ_CMD      ;sector read command
+	BIT     6,D             ;single sided disk?
+	JR      Z,READ2         ;yes
+	OR      00000010B       ;enable side compare flag
+	BIT     2,D             ;which side are we dealing with?
+	JR      Z,READ2         ;side 0
+	OR      00001000B       ;compare for side 1
+READ2:  PUSH    HL              ;save target address
+	PUSH    DE              ;save FD_SEL content and retry count
+	PUSH    BC              ;save sector count and target track
+	LD      BC,FD_REQ       ;load address of IRQ and DRQ
+	LD      DE,RDDONE       ;set where to jump when done
+	PUSH    DE
+	CALL    DISINT
+	DI
+	LD      (FD_CMD),A      ;issue read command
+;
+;       Check first  response from FDC.  We do this because our hardware
+;       cannot sense if media is inserted or not
+;
+	LD      DE,0            ;set counter to 65536
+WAIT:   LD      A,(BC)
+	ADD     A,A
+	JP      P,DISKOK        ;got response, media is inserted
+	RET     C               ;read confirmed
+	DEC     E
+	JP      NZ,WAIT
+	DEC     D
+	JP      NZ,WAIT
+	POP     BC              ;discard jump address
+	POP     BC              ;get remaining sector count
+	POP     DE              ;discard retry count
+	POP     HL              ;discard target address
+	JR      READ_NOTRDY     ;drive not ready, no retries
+;
+DISKOK: LD      DE,FD_DAT       ;load address of FDC data register
+	JP      RDLOP1          ;data ready, get it
+;
+RDLOOP: LD      A,(BC)          ;read data request port
+	ADD     A,A
+	RET     C               ;read confirmed
+	JP      M,RDLOOP        ;no data ready
+RDLOP1: LD      A,(DE)          ;read FDC's data register
+	LD      (HL),A          ;write to transfer address
+	INC     HL              ;bump address pointer
+	JP      RDLOOP
+;
+RDDONE: POP     BC              ;restore sector count and target track
+	POP     DE              ;restore current FD_SEL and retry count
+	POP     HL              ;restore target address
+	EI
+	CALL    ENAINT
+	LD      A,(FD_STT)
+	AND     10011100B       ;not ready         or
+				;record not found  or
+				;CRC error         or
+				;lost data         ?
+	RET     Z               ;no, return with carry flag reset
+	JP      M,READ_NOTRDY   ;not ready, do not retry  (this  is  not
+				;likely to happen)
+;
+;       here when retry might be necessary
+;
+	PUSH    AF              ;save error code
+	CALL    RESEEK          ;restore and re-seek head if necessary
+	POP     AF              ;restore error code
+	DEC     E               ;should retry?
+	JR      NZ,RDRTRY       ;yes
+;
+;       no more retries, report errors to the  caller  with  carry  flag
+;       set and [B] containing # of sectors remaining
+;
+	SCF                     ;set carry to indicate error occurred
+	LD      E,A             ;move error status to [E]
+	BIT     4,E             ;record not found?
+	LD      A,8
+	RET     NZ              ;yes
+	BIT     3,E             ;CRC error?
+	LD      A,4
+	RET     NZ              ;yes
+	LD      A,12            ;treat as 'other error'
+	RET
+;
+;       here when 'not-ready' error occurred during read
+;
+READ_NOTRDY:
+	LD      A,2             ;ID for 'drive not ready'
+	SCF
+	RET
+
+	SUBTTL  select proper drive
+
+;
+;       Select drive, track and sector
+;
+SELDRV: PUSH    AF
+	PUSH    BC
+	PUSH    HL
+	CALL    GETWRK          ;get base of work area in [IX]
+	POP     HL
+	POP     BC
+	POP     AF
+	CP      2               ;is drive number in proper range?
+	JR      C,SLDRV1        ;yes
+BADPRM: LD      A,12            ;maybe internal malfunction
+	SCF
+	RET
+;
+SLDRV1: PUSH    AF
+	LD      A,C             ;get media descriptor byte
+	CP      0FCH            ;within proper range? ( 0FCH .. 0FFH )
+	JR      NC,SLDRV2       ;yes
+	POP     AF
+	JR      BADPRM          ;bad parameter specified
+;
+SLDRV2: EX      (SP),HL         ;save transfer address
+	PUSH    HL              ;save drive number specified
+	PUSH    BC              ;save sector count and media type
+	CALL    BSYCHK          ;make sure FDC is ready
+	BIT     1,C             ;8 sectors or 9 sectors per track?
+	LD      C,E             ;move logical  sector  number  to   [BC]
+	LD      B,D             ;for DIV16
+	LD      DE,8            ;assume 8 sectors
+	JR      NZ,SEL8S        ;good assumption
+	INC     DE              ;9 sectors per track
+SEL8S:  CALL    DIV16           ;[BC] = [BC] / [DE], [HL] = remainder
+	LD      A,L             ;now [BC] = track, [HL] = sector - 1
+	INC     A
+	LD      (FD_SEC),A      ;set sector register
+	LD      L,C             ;move track to [L]
+	POP     BC              ;restore sector count and media type
+	POP     AF              ;restore drive number
+	LD      H,A             ;remember specified drive
+	LD      A,(IX+PHYDRV)   ;how many drives do we have?
+	DEC     A
+	JR      Z,FAKE1         ;only 1 drive, always select drive 0
+	LD      A,H             ;restore specified drive
+FAKE1:
+	ADD     A,1001B         ;map 0,1 to 1,2 and motor on
+	BIT     0,C             ;single side?
+	JR      Z,SIDE0         ;yes, always select side 0
+	SRL     L               ;divide track by 2 to determine the side
+	JR      NC,SIDE0        ;side 0 specified
+	OR      0100B           ;side 1 specified
+SIDE0:  LD      D,A
+	LD      A,C             ;get media descriptor byte
+	RRCA
+	RRCA
+	AND     11000000B       ;leave only significant bits
+	OR      D
+	LD      D,A             ;remember what is currently output
+	DI
+	LD      (FD_SEL),A
+	LD      A,(IX+MOTCNT)   ;get current motor status
+	AND     A               ;see if motor was spinning or not
+	LD      (IX+MOTCNT),0FFH        ;tell interrupt   handler    not
+					;to stop the motor
+	EI
+	JR      NZ,NOWAIT       ;was spinning, no delay required
+	PUSH    HL              ;was stopping, wait some time
+	LD      HL,0
+MOTWAT: DEC     HL
+	LD      A,L
+	OR      H
+	JR      NZ,MOTWAT
+	POP     HL
+NOWAIT: LD      C,L             ;remember target track
+	LD      A,(IX+PHYDRV)   ;get number of physical drives
+	DEC     A
+	JR      Z,FAKE2         ;we have only 1 drive
+	LD      A,(IX+CURDRV)   ;get currently specified drive
+	CP      H               ;same as before?
+	JR      Z,SAMDRV        ;yes
+	XOR     1               ;flip LSB to switch drives
+	LD      (IX+CURDRV),A
+	LD      A,(FD_TRK)      ;read from FDC's track register
+	JR      Z,WAS1          ;from drive 1 to drive 0
+;
+;       drive is switched from 0 to 1
+;
+	LD      (IX+TRACK0),A   ;remember this
+	LD      A,(IX+TRACK1)   ;get head position for the new drive
+	JR      WAS0
+;
+;       drive is switched from 1 to 0
+;
+WAS1:   LD      (IX+TRACK1),A   ;remember this
+	LD      A,(IX+TRACK0)   ;get head position for the new drive
+WAS0:   LD      (FD_TRK),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	JR      CHKTRK          ;see if same track as before
+;
+FAKE2:
+	LD      A,H             ;get specified drive number
+	CP      (IX+PRVDRV)     ;same as before?
+	LD      (IX+PRVDRV),A
+	JR      Z,SAMDRV        ;yes
+	PUSH    IX              ;save base of work area
+	PUSH    DE              ;save FD_SEL status
+	PUSH    BC              ;save sector count and current track
+	CALL    PROMPT
+	POP     BC
+	POP     DE
+	POP     IX
+SAMDRV: LD      A,(FD_TRK)      ;get track number FDC currently has
+CHKTRK: CP      C               ;same with specified track?
+	CALL    NZ,SEEKC        ;if not, seek to that track
+	POP     HL              ;restore target address
+	RET                     ;carry flag is always cleared
+
+	SUBTTL  update disk parameters
+
+;
+;       Update sector, side, and track for multi sector read/write
+;
+UPDATE: CALL    BSYCHK          ;Make sure FDC is ready
+	INC     H               ;advance memory address by 512 bytes
+	INC     H
+	LD      A,(FD_SEC)      ;load FDC's sector register
+	INC     A
+	LD      (FD_SEC),A      ;assume within range
+	BIT     7,D             ;8 or 9 sectors?
+	JR      NZ,UPD8S        ;8 sectors
+	CP      9+1             ;need to wrap to next side or track?
+	RET     C               ;no
+UPD8S:  CP      8+1             ;need to wrap to next side or track?
+	RET     C               ;no
+	LD      A,1             ;start from sector 1
+	LD      (FD_SEC),A
+	BIT     6,D             ;single sided drive?
+	JR      Z,NXTTRK        ;yes, always go to next track
+	BIT     2,D             ;which side are we in now?
+	JR      NZ,NXTTRK       ;side 1, have to go to next track
+	SET     2,D             ;side 0, have to go to the other side
+	LD      A,D
+	LD      (FD_SEL),A      ;select side 1
+	RET
+;
+NXTTRK: RES     2,D             ;go to the other side
+	LD      A,D
+	LD      (FD_SEL),A      ;select side 0
+	INC     C               ;advance target sector
+	CALL    BSYCHK          ;make sure FDC is ready
+	LD      A,STEPIN_CMD    ;issue step-in command
+	LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	JR      BSYCHK          ;wait for termination
+
+	SUBTTL  Miscellaneous procedures
+
+;
+;       Re-calibrate then re-seek
+;
+RESEEK: BIT     0,E             ;re-seek only on even retry counts
+	RET     NZ
+	CALL    RESTOR          ;restore head of current drive
+;
+;       Seek track specified by [C]
+;
+SEEKC:  LD      A,C             ;get target track
+	LD      (FD_DAT),A      ;set destination
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      A,SEEK_CMD      ;issue seek command
+CMDWAT: LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+;
+;       Wait until FDC is ready for new command
+;
+BSYCHK: LD      A,(FD_STT)      ;get FDC status
+	RRA                     ;look at busy bit [LSB]
+	JR      C,BSYCHK        ;FDC still busy, wait
+	RET
+;
+RESTOR: CALL    BSYCHK
+	LD      A,RESTORE_CMD   ;issue restore command
+	JR      CMDWAT
+
+	SUBTTL  initialization
+
+;
+;       Initialize hardware only
+;
+;       All registers may be affected
+;
+	PUBLIC  INIHRD
+INIHRD: LD      A,FORCE_CMD     ;force FDC to ready state
+	LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      A,0001B         ;restore drive 0
+	CALL    INIHRD1
+	LD      A,0010B         ;restore drive 1
+	CALL    INIHRD1
+	PUBLIC  MTOFF
+MTOFF:
+	XOR     A               ;disable both drives
+	LD      (FD_SEL),A
+	RET
+;
+INIHRD1:
+	LD      (FD_SEL),A
+	CALL    BSYCHK
+	LD      A,RESTORE_CMD   ;issue restore command
+	LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      HL,0            ;set loop counter
+INIHRD2:
+	LD      A,(FD_STT)      ;get FDC status
+	RRA                     ;look at busy bit [LSB]
+	RET     NC              ;FDC ready
+	DEC     HL
+	LD      A,L
+	OR      H
+	JR      NZ,INIHRD2      ;FDC still busy, wait more
+	RET
+;
+;       get number of drives to [L]
+;
+;       [HL] can be modified
+;
+	PUBLIC  DRIVES
+DRIVES: PUSH    BC
+	PUSH    AF
+	CALL    GETWRK          ;get work area base to [IX]
+	LD      A,0010B         ;enable drive 1
+	LD      (FD_SEL),A
+	CALL    BSYCHK
+	LD      A,RESTORE_CMD   ;issue restore command
+	LD      (FD_CMD),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      HL,0            ;set loop counter
+CHKDR2: LD      A,(FD_STT)      ;get FDC status
+	RRA                     ;look at busy bit [LSB]
+	JR      NC,HAVTWO       ;FDC ready, we have two drives
+	DEC     HL
+	LD      A,L
+	OR      H
+	JR      NZ,CHKDR2       ;FDC still busy, wait more
+	INC     L               ;load 1 to [L]
+	DEFB    0CAH            ;'JP Z' instruction
+HAVTWO: LD      L,2
+	LD      (IX+PHYDRV),L   ;remember actual number of drives
+	XOR     A               ;disable both drives
+	LD      (FD_SEL),A
+	POP     AF
+	JR      Z,FORCE1        ;ok even if only 1 drive
+	LD      L,2             ;pretend we have 2 drives
+FORCE1: POP     BC
+	RET
+;
+;       Initialize environments
+;
+;       All registers may be affected
+;
+	PUBLIC  INIENV
+INIENV: CALL    GETWRK          ;get base of work area to [IX] and [HL]
+	XOR     A               ;clear out all variables except PHYDRV
+	LD      B,WRKLEN-1
+INILOP: LD      (HL),A
+	INC     HL
+	DJNZ    INILOP
+	LD      HL,INTRPT
+	JP      SETINT          ;save previous hook and set my own
+
+	SUBTTL  interrupt handler
+
+;
+;       interrupt handler
+;
+INTRPT: PUSH    AF              ;[A] must be preserved  for  'ON  SPRITE
+				;GOSUB'
+	CALL    GETWRK          ;get base of work area in [HL]
+	LD      A,(HL)          ;get current motor count
+	AND     A               ;stopping?
+	JR      Z,INTR1         ;yes, do nothing
+	CP      0FFH            ;currently working with disks?
+	JR      Z,INTR1         ;yes, do nothing
+	DEC     A               ;update it
+	LD      (HL),A
+	JR      NZ,INTR1        ;motor time not elapsed
+	LD      (FD_SEL),A      ;stop the motor
+INTR1:  INC     HL
+	LD      A,(HL)          ;get 'last   disk  access'  counter  for
+				;drive 0
+	AND     A               ;already 0?
+	JR      Z,INTR2         ;yes, do nothing
+	DEC     (HL)            ;update it
+INTR2:  INC     HL
+	LD      A,(HL)          ;get 'last   disk  access'  counter  for
+				;drive 1
+	AND     A               ;already 0?
+	JR      Z,INTR3         ;yes, do nothing
+	DEC     (HL)            ;update it
+INTR3:  POP     AF
+	JP      PRVINT          ;jump to previous interrupt hook
+
+	SUBTTL  disk change handlers
+
+;
+;       See if disk has been possibly changed
+;
+; inputs:
+;       [A]  = drive number ( 0 based )
+;       [B]  = 0
+;       [C]  = media descriptor
+;       [HL] = base address of DPB
+;
+	PUBLIC  DSKCHG
+DSKCHG:
+	EI                      ;make sure interrupt is enabled
+	PUSH    HL              ;save address of DPB
+	PUSH    BC              ;save media ID
+	PUSH    AF              ;save drive number
+	CALL    GETWRK          ;get base of work area in [IX]
+	POP     AF              ;restore drive number
+	POP     BC              ;restore media ID
+	POP     HL              ;restore address of DPB
+	AND     A               ;status for which drive?
+	LD      B,(IX+LAST1)    ;assume drive 1
+	JR      NZ,DSKCH1       ;good assumption
+	LD      B,(IX+LAST0)    ;drive 0
+DSKCH1:
+	INC     B               ;has there  been  a  disk  access within
+	DEC     B               ;USR_TIME?
+	LD      B,1             ;assume so
+	RET     NZ              ;good assumption,  disk  must  not  have
+				;been changed,  or  a  SUPERMAN  may  be
+				;using the system
+	PUSH    BC              ;save passed media ID
+	PUSH    HL              ;save base of DPB
+	LD      DE,1            ;read first sector of FAT to $SECBUF
+	LD      HL,($SECBUF)
+	CALL    DSKIO
+	JR      C,DSKCHG_ERROR  ;read error
+	LD      HL,($SECBUF)
+	LD      B,(HL)          ;get first byte of FAT
+	POP     HL              ;restore base of DPB
+	PUSH    BC              ;save first byte of FAT
+	CALL    GETDPB          ;build a new DPB for the current media
+	LD      A,12            ;assume 'other error'
+	JR      C,DSKCHG_ERROR  ;good assumption
+	POP     AF              ;restore first byte of FAT to [A]
+	POP     BC              ;restore passed media ID in [C]
+	CP      C               ;same with passed ID?
+	SCF                     ;clear carry flag only
+	CCF
+	LD      B,-1            ;assume not
+	RET     NZ              ;disk has been definitely changed
+	INC     B               ;have no   idea  whether  the  disk  has
+				;been changed or not
+	RET
+;
+DSKCHG_ERROR:
+	POP     DE
+	POP     DE
+	RET
+;
+;       Build a new DPB for the specified  drive.   Since  our  hardware
+;       is assumed  to  be  5inch  IBM  disk  compatible, all we have to
+;       do is to check the first byte of  FAT  passed  from  the  caller
+;       and return one of the possible 4 DPBs.
+;
+	PUBLIC  GETDPB
+GETDPB:
+	EI                      ;make sure interrupt is enabled
+	EX      DE,HL           ;move DPB address to [DE]
+	INC     DE              ;skip DRVNUM entry
+	LD      A,B
+	SUB     0FCH            ;get rid of offset
+	RET     C               ;something is wrong
+	LD      L,A             ;[HL] = [HL] * 18
+	LD      H,0
+	ADD     HL,HL
+	LD      C,L
+	LD      B,H
+	ADD     HL,HL
+	ADD     HL,HL
+	ADD     HL,HL
+	ADD     HL,BC
+	LD      BC,DPBTBL
+	ADD     HL,BC
+	LD      BC,18
+	LDIR
+	RET
+
+	SUBTTL  disk formatter
+
+	PUBLIC  CHOICE
+CHOICE: LD      HL,CHOMSG
+	RET
+;
+CHOMSG: DEFB    CR,LF
+	DEFB    '1 - 8 sectors',CR,LF
+	DEFB    '2 - 9 sectors',CR,LF
+	DEFB    CR,LF
+	DEFB    0
+;
+	PUBLIC  DSKFMT
+DSKFMT: CP      2+1             ;good choice?
+	JR      NC,FMTERR       ;no
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;                                            ;
+;       Your format routine comes here       ;
+;                                            ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	AND     A
+	RET
+;
+FMTERR:
+	LD      A,12            ;bad parameter
+	SCF
+	RET
+
+	SUBTTL  expanded statements for OEM
+
+	PUBLIC  OEMSTATEMENT
+OEMSTATEMENT:
+	SCF                     ;no expanded statements
+	RET
+
+	SUBTTL  relocation of read/write routines
+
+RD_RELOCATE:
+	PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	LD      HL,READDATA     ;transfer raw data for read
+	LD      DE,($SECBUF)
+	LD      BC,PR_LEN
+	LDIR
+	LD      HL,RD_RELOC_DATA
+	JR      REL1
+;
+WR_RELOCATE:
+	PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	LD      HL,WRITEDATA    ;transfer raw data for write
+	LD      DE,($SECBUF)
+	LD      BC,PW_LEN
+	LDIR
+	LD      HL,WR_RELOC_DATA
+REL1:   LD      E,(HL)          ;get from table
+	INC     HL
+	LD      D,(HL)
+	INC     HL
+	LD      A,E             ;end of table?
+	OR      D
+	JR      Z,RELEND        ;yes, all done
+	PUSH    HL              ;save table pointer
+	LD      HL,($SECBUF)
+	ADD     HL,DE
+	INC     HL              ;point to operand
+	LD      C,(HL)          ;get operand in [BC]
+	INC     HL
+	LD      B,(HL)
+	EX      DE,HL           ;save operand address in [DE]
+	LD      HL,($SECBUF)
+	ADD     HL,BC           ;calculate real operand
+	EX      DE,HL
+	LD      (HL),D          ;modify operand
+	DEC     HL
+	LD      (HL),E
+	POP     HL
+	JR      REL1
+;
+RELEND: POP     BC
+	POP     DE
+	POP     HL
+	RET
+;
+WR_RELOC_DATA:
+	DEFW    WR01
+	DEFW    WR02
+	DEFW    WR03
+	DEFW    WR04
+	DEFW    WR05
+	DEFW    WR06
+	DEFW    WR07
+	DEFW    WR08
+	DEFW    WR09
+	DEFW    WR10
+	DEFW    WR11
+	DEFW    WR12
+	DEFW    WR13
+	DEFW    WR14
+	DEFW    WR15
+	DEFW    0
+;
+RD_RELOC_DATA:
+	DEFW    RR01
+	DEFW    RR02
+	DEFW    RR03
+	DEFW    RR04
+	DEFW    RR05
+	DEFW    RR06
+	DEFW    RR07
+	DEFW    RR08
+	DEFW    RR09
+	DEFW    RR10
+	DEFW    RR11
+	DEFW    RR12
+	DEFW    RR13
+	DEFW    RR14
+	DEFW    RR15
+	DEFW    RR16
+	DEFW    RR17
+	DEFW    0
+;
+JP_$SECBUF:
+	PUSH    HL
+	LD      HL,($SECBUF)
+	EX      (SP),HL
+	RET
+;
+PRINTV  MACRO   VALUE
+	IF1
+	.PRINTX * Length = VALUE *
+	ENDIF
+	ENDM
+
+;
+;       Read routine which is transfered to $SECBUF
+;
+READDATA:
+	.PHASE  0
+	PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	CALL    GETSLOT         ;get where I am
+RR01:   LD      (PR_DUMMY+1),A  ;to return to original slot
+	LD      H,80H           ;set page 2 to FDC
+	CALL    ENASLT
+	EI
+	LD      A,(RAMAD1)      ;set page 1 to RAM
+	LD      H,40H
+	CALL    ENASLT
+	EI
+	POP     BC
+	POP     DE
+	POP     HL
+PR_RDSECT:
+	DEC     HL
+	LD      A,H
+	ADD     A,2
+	INC     HL
+RR02:   JP      M,PR_END        ;transfer is above 8000H
+	LD      E,RETRIES       ;set retry count
+PR_RDRTRY:
+RR03:   CALL    PR_BSYCHK       ;make sure FDC is ready for command
+	LD      A,READ_CMD      ;sector read command
+	BIT     6,D             ;single sided disk?
+	JR      Z,PR_READ2      ;yes
+	OR      00000010B       ;enable side compare flag
+	BIT     2,D             ;which side are we dealing with?
+	JR      Z,PR_READ2      ;side 0
+	OR      00001000B       ;compare for side 1
+PR_READ2:
+	PUSH    HL              ;save target address
+	PUSH    DE              ;save FD_SEL content and retry count
+	PUSH    BC              ;save sector count and target track
+	LD      BC,FD_REQ+4000H ;load address of IRQ and DRQ
+RR04:   LD      DE,PR_RDDONE    ;set where to jump when done
+	PUSH    DE
+	CALL    DISINT
+	DI
+	LD      (FD_CMD+4000H),A        ;issue read command
+;
+;       Check first  response from FDC.  We do this because our hardware
+;       cannot sense if media is inserted or not
+;
+	LD      DE,0            ;set counter to 65536
+PR_WAIT:
+	LD      A,(BC)
+	ADD     A,A
+RR05:   JP      P,PR_DISKOK     ;got response, media is inserted
+	RET     C               ;read confirmed
+	DEC     E
+RR06:   JP      NZ,PR_WAIT
+	DEC     D
+RR07:   JP      NZ,PR_WAIT
+	POP     BC              ;discard jump address
+	POP     BC              ;get remaining sector count
+	POP     DE              ;discard retry count
+	POP     HL              ;discard target address
+	JR      PR_READ_NOTRDY  ;drive not ready, no retries
+;
+PR_DISKOK:
+	LD      DE,FD_DAT+4000H ;load address of FDC data register
+RR08:   JP      PR_RDLOP1       ;data ready, get it
+;
+PR_RDLOOP:
+	LD      A,(BC)          ;read data request port
+	ADD     A,A
+	RET     C               ;read confirmed
+RR09:   JP      M,PR_RDLOOP     ;no data ready
+PR_RDLOP1:
+	LD      A,(DE)          ;read FDC's data register
+	LD      (HL),A          ;write to transfer address
+	INC     HL              ;bump address pointer
+RR10:   JP      PR_RDLOOP
+;
+PR_RDDONE:
+	POP     BC              ;restore sector count and target track
+	POP     DE              ;restore current FD_SEL and retry count
+	POP     HL              ;restore target address
+	EI
+	CALL    ENAINT
+	LD      A,(FD_STT+4000H)
+	AND     10011100B       ;not ready         or
+				;record not found  or
+				;CRC error         or
+				;lost data         ?
+	JR      NZ,PR_RDERR     ;yes
+	DEC     B               ;done all sectors?
+	JR      Z,PR_END        ;yes
+RR11:   CALL    PR_UPDATE       ;update parameters
+	JR      PR_RDSECT       ;continue
+;
+PR_RDERR:
+RR12:   JP      M,PR_READ_NOTRDY        ;not ready,  do  not retry (this
+					;is not likely to happen)
+;
+;       here when retry might be necessary
+;
+	PUSH    AF              ;save error code
+RR13:   CALL    PR_RESEEK       ;restore and re-seek head if necessary
+	POP     AF              ;restore error code
+	DEC     E               ;should retry?
+	JR      NZ,PR_RDRTRY    ;yes
+;
+;       no more retries, report errors to the  caller  with  carry  flag
+;       set and [B] containing # of sectors remaining
+;
+	LD      E,A             ;move error status to [E]
+	BIT     4,E             ;record not found?
+	LD      A,8
+	JR      NZ,PR_ERR       ;yes
+	BIT     3,E             ;CRC error?
+	LD      A,4
+	JR      NZ,PR_ERR       ;yes
+	LD      A,12            ;treat as 'other error'
+	JR      PR_ERR
+;
+;       here when 'not-ready' error occurred during read
+;
+PR_READ_NOTRDY:
+	LD      A,2             ;ID for 'drive not ready'
+PR_ERR: SCF
+PR_END: PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	PUSH    AF
+	LD      A,(RAMAD2)      ;change page 2 to RAM
+	LD      H,80H
+	CALL    ENASLT
+	IF      EXPBUG
+	CALL    $DOSON
+	ENDIF
+	EI
+PR_DUMMY:
+	LD      A,0             ;where I was
+	LD      H,40H
+	CALL    ENASLT
+	EI
+	POP     AF
+	POP     BC
+	POP     DE
+	POP     HL
+	RET
+;
+PR_UPDATE:
+RR14:   CALL    PR_BSYCHK       ;make sure FDC is ready
+	INC     H               ;advance memory address by 512 bytes
+	INC     H
+	LD      A,(FD_SEC+4000H)        ;load FDC's sector register
+	INC     A
+	LD      (FD_SEC+4000H),A        ;assume within range
+	BIT     7,D             ;8 or 9 sectors?
+	JR      NZ,PR_UPD8S     ;8 sectors
+	CP      9+1             ;need to wrap to next side or track?
+	RET     C               ;no
+PR_UPD8S:
+	CP      8+1             ;need to wrap to next side or track?
+	RET     C               ;no
+	LD      A,1             ;start from sector 1
+	LD      (FD_SEC+4000H),A
+	BIT     6,D             ;single sided drive?
+	JR      Z,PR_NXTTRK     ;yes, always go to next track
+	BIT     2,D             ;which side are we in now?
+	JR      NZ,PR_NXTTRK    ;side 1, have to go to next track
+	SET     2,D             ;side 0, have to go to the other side
+	LD      A,D
+	LD      (FD_SEL+4000H),A        ;select side 1
+	RET
+;
+PR_NXTTRK:
+	RES     2,D             ;go to the other side
+	LD      A,D
+	LD      (FD_SEL+4000H),A        ;select side 0
+	INC     C               ;advance target sector
+RR15:   CALL    PR_BSYCHK       ;make sure FDC is ready
+	LD      A,STEPIN_CMD    ;issue step-in command
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	JR      PR_BSYCHK       ;wait for termination
+;
+;       Re-calibrate then re-seek
+;
+PR_RESEEK:
+	BIT     0,E             ;re-seek only on even retry counts
+	RET     NZ
+RR16:   CALL    PR_RESTOR       ;restore head of current drive
+;
+;       Seek track specified by [C]
+;
+	LD      A,C             ;get target track
+	LD      (FD_DAT+4000H),A        ;set destination
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      A,SEEK_CMD      ;issue seek command
+PR_CMDWAT:
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+;
+;       Wait until FDC is ready for new command
+;
+PR_BSYCHK:
+	LD      A,(FD_STT+4000H)        ;get FDC status
+	RRA                     ;look at busy bit [LSB]
+	JR      C,PR_BSYCHK     ;FDC still busy, wait
+	RET
+;
+PR_RESTOR:
+RR17:   CALL    PR_BSYCHK
+	LD      A,RESTORE_CMD   ;issue restore command
+	JR      PR_CMDWAT
+PR_LEN  EQU     $
+	.RADIX  16
+	PRINTV  %PR_LEN
+	.RADIX  10
+	.DEPHASE
+
+;
+;       Write routine which is transfered to $SECBUF
+;
+WRITEDATA:
+	.PHASE  0
+	PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	CALL    GETSLOT         ;get where I am
+WR01:   LD      (PW_DUMMY+1),A  ;to return to original slot
+	LD      H,80H           ;set page 2 to FDC
+	CALL    ENASLT
+	EI
+	LD      A,(RAMAD1)      ;set page 1 to RAM
+	LD      H,40H
+	CALL    ENASLT
+	EI
+	POP     BC
+	POP     DE
+	POP     HL
+PW_WRSECT:
+	DEC     HL
+	LD      A,H
+	ADD     A,2
+	INC     HL
+WR02:   JP      M,PW_END        ;transfer is above 8000H
+	LD      E,RETRIES       ;set retry count
+PW_WRRTRY:
+WR03:   CALL    PW_BSYCHK       ;make sure FDC is ready for command
+	LD      A,WRITE_CMD     ;sector write command
+	BIT     6,D             ;single sided disk?
+	JR      Z,PW_WRITE2     ;yes
+	OR      00000010B       ;enable side compare flag
+	BIT     2,D             ;which side are we dealing with?
+	JR      Z,PW_WRITE2     ;side 0
+	OR      00001000B       ;compare for side 1
+PW_WRITE2:
+	PUSH    HL              ;save target address
+	PUSH    DE              ;save FD_SEL content and retry count
+	PUSH    BC              ;save sector count and target track
+WR04:   LD      DE,PW_WRDONE    ;set where to jump when done
+	PUSH    DE
+	CALL    DISINT
+	DI
+	LD      (FD_CMD+4000H),A        ;issue write command
+	LD      BC,FD_REQ+4000H
+	LD      DE,FD_DAT+4000H
+PW_WRLOOP:
+	LD      A,(BC)          ;read data request port
+	ADD     A,A
+	RET     C               ;write confirmed
+WR05:   JP      M,PW_WRLOOP     ;no data requested
+	LD      A,(HL)          ;get from target address
+	LD      (DE),A          ;write to FDC's data register
+	INC     HL              ;bump address pointer
+WR06:   JP      PW_WRLOOP
+;
+PW_WRDONE:
+	POP     BC              ;restore sector count and target track
+	POP     DE              ;restore current FD_SEL and retry count
+	POP     HL              ;restore target address
+	EI
+	CALL    ENAINT
+	LD      A,(FD_STT+4000H)
+	AND     11111100B       ;not ready         or
+				;write protect     or
+				;write fault       or
+				;record not found  or
+				;CRC error         or
+				;lost data         ?
+	JR      NZ,PW_WRERR     ;yes
+	DEC     B               ;done all sectors?
+	JR      Z,PW_END        ;yes
+WR07:   CALL    PW_UPDATE       ;update parameters
+	JR      PW_WRSECT       ;continue
+;
+PW_WRERR:
+WR08:   JP      M,PW_WRITE_NOTRDY       ;not ready,  do  not retry (this
+					;is not likely to happen)
+	BIT     6,A             ;write protect?
+	JR      NZ,PW_WRTPRT    ;yes, do not retry
+;
+;       here when retry might be necessary
+;
+	PUSH    AF              ;save error code
+WR09:   CALL    PW_RESEEK       ;restore and re-seek head if necessary
+	POP     AF              ;restore error code
+	DEC     E               ;should retry?
+	JR      NZ,PW_WRRTRY    ;yes
+;
+;       no more retries, report errors to the caller
+;
+	LD      E,A             ;move error status to [E]
+	BIT     5,E             ;write fault?
+	LD      A,10
+	JR      NZ,PW_ERR       ;yes
+	BIT     4,E             ;record not found?
+	LD      A,8
+	JR      NZ,PW_ERR       ;yes
+	BIT     3,E             ;CRC error?
+	LD      A,4
+	JR      NZ,PW_ERR       ;yes
+	LD      A,12            ;treat as 'other error'
+	JR      PW_ERR
+;
+;       here when  'write  protected'  error  occurred.   But we are not
+;       yet sure this is really 'write  protected'  error  because  when
+;       no disk is inserted, the FDC reports the same result.
+;
+PW_WRTPRT:
+	LD      A,FORCE_CMD     ;terminate write command
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL
+	EX      (SP),HL
+	LD      A,READ_CMD      ;issue read command
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      HL,FD_REQ+4000H
+	LD      DE,0
+PW_WRPRT1:
+	LD      A,(HL)          ;get requests
+	ADD     A,A
+	JR      C,PW_DSKRDY     ;read confirmed, disk is ready
+WR10:   JP      P,PW_DSKRDY     ;data ready, disk is ready
+	DEC     DE              ;need to wait more?
+	LD      A,E
+	OR      D
+WR11:   JP      NZ,PW_WRPRT1    ;yes
+;
+;       here when 'not-ready' error occurred
+;
+PW_WRITE_NOTRDY:
+	LD      A,2             ;ID for 'drive not ready'
+	JR      PW_ERR
+;
+;       FDC responded to read command, disk is surely inserted
+;
+PW_DSKRDY:
+	XOR     A            ;ID for 'disk write protected'
+PW_ERR: SCF
+PW_END: PUSH    HL
+	PUSH    DE
+	PUSH    BC
+	PUSH    AF
+	LD      A,(RAMAD2)      ;change page 2 to RAM
+	LD      H,80H
+	CALL    ENASLT
+	IF      EXPBUG
+	CALL    $DOSON
+	ENDIF
+	EI
+PW_DUMMY:
+	LD      A,0             ;where I was
+	LD      H,40H
+	CALL    ENASLT
+	EI
+	POP     AF
+	POP     BC
+	POP     DE
+	POP     HL
+	RET
+;
+PW_UPDATE:
+WR12:   CALL    PW_BSYCHK       ;make sure FDC is ready
+	INC     H               ;advance memory address by 512 bytes
+	INC     H
+	LD      A,(FD_SEC+4000H)        ;load FDC's sector register
+	INC     A
+	LD      (FD_SEC+4000H),A        ;assume within range
+	BIT     7,D             ;8 or 9 sectors?
+	JR      NZ,PW_UPD8S     ;8 sectors
+	CP      9+1             ;need to wrap to next side or track?
+	RET     C               ;no
+PW_UPD8S:
+	CP      8+1             ;need to wrap to next side or track?
+	RET     C               ;no
+	LD      A,1             ;start from sector 1
+	LD      (FD_SEC+4000H),A
+	BIT     6,D             ;single sided drive?
+	JR      Z,PW_NXTTRK     ;yes, always go to next track
+	BIT     2,D             ;which side are we in now?
+	JR      NZ,PW_NXTTRK    ;side 1, have to go to next track
+	SET     2,D             ;side 0, have to go to the other side
+	LD      A,D
+	LD      (FD_SEL+4000H),A        ;select side 1
+	RET
+;
+PW_NXTTRK:
+	RES     2,D             ;go to the other side
+	LD      A,D
+	LD      (FD_SEL+4000H),A        ;select side 0
+	INC     C               ;advance target sector
+WR13:   CALL    PW_BSYCHK       ;make sure FDC is ready
+	LD      A,STEPIN_CMD    ;issue step-in command
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	JR      PW_BSYCHK       ;wait for termination
+;
+;       Re-calibrate then re-seek
+;
+PW_RESEEK:
+	BIT     0,E             ;re-seek only on even retry counts
+	RET     NZ
+WR14:   CALL    PW_RESTOR       ;restore head of current drive
+;
+;       Seek track specified by [C]
+;
+	LD      A,C             ;get target track
+	LD      (FD_DAT+4000H),A        ;set destination
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+	LD      A,SEEK_CMD      ;issue seek command
+PW_CMDWAT:
+	LD      (FD_CMD+4000H),A
+	EX      (SP),HL         ;kill time
+	EX      (SP),HL
+;
+;       Wait until FDC is ready for new command
+;
+PW_BSYCHK:
+	LD      A,(FD_STT+4000H)        ;get FDC status
+	RRA                     ;look at busy bit [LSB]
+	JR      C,PW_BSYCHK     ;FDC still busy, wait
+	RET
+;
+PW_RESTOR:
+WR15:   CALL    PW_BSYCHK
+	LD      A,RESTORE_CMD   ;issue restore command
+	JR      PW_CMDWAT
+PW_LEN  EQU     $
+	.RADIX  16
+	PRINTV  %PW_LEN
+	.RADIX  10
+	.DEPHASE
+
+	END
+

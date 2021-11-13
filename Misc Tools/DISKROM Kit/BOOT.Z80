@@ -1,0 +1,119 @@
+	TITLE   boot sector for MSXDOS
+
+	.Z80
+
+BASENT  EQU     4022H
+FUNC    EQU     0F37DH          ;function call entry
+KBUF    EQU     0F41FH          ;BASIC's crunch buffer
+;
+;       Enter here with page 0, 2 and 3 set  to  RAM,  page  1  to  DISK
+;       ROM.
+;
+;       HL contains the disk error trap vector address
+;       DE contains the address of $DOSON
+;       A  contains the NOTFIRST flag
+;
+	.PHASE  0C000H
+;
+	DEFB    0EBH,0FEH       ;JMP SHORT $
+	DEFB    90H             ;NOP
+;
+;       Disk parameter block
+;
+	DEFB    'ASC  2.2'
+	DEFW    0               ;0B  bytes per sector
+				;0C
+	DEFB    0               ;0D  sectors per cluster
+	DEFW    0               ;0E  number of reserved sectors
+				;0F
+	DEFB    0               ;10  number of FATs
+	DEFW    0               ;11  number of directory entries
+				;12
+	DEFW    0               ;13  total number of sectors in the media
+				;14
+	DEFB    0               ;15  media descriptor
+	DEFW    0               ;16  number of sectors per FAT
+				;17
+	DEFW    0               ;18  sectors per track
+				;19
+	DEFW    0               ;1A  number of heads
+				;1B
+	DEFW    0               ;1C  number of hidden sectors
+				;1D
+;
+BOOT:
+	RET     NC              ;if not called to  invoke  MSXDOS,  just
+				;return
+	LD      ($$DOSON+1),DE
+	LD      (NOTFIRST),A    ;make a local copy of 'NOTFIRST' flag
+	LD      (HL),LOW BOOTERRVECT
+	INC     HL
+	LD      (HL),HIGH BOOTERRVECT
+TRYAGAIN:
+	LD      SP,KBUF+100H
+	LD      DE,COMFCB
+	LD      C,0FH           ;OPEN
+	CALL    FUNC
+	INC     A
+	JP      Z,NOFILE        ;'MSXDOS.SYS' does not exist
+	LD      DE,100H
+	LD      C,1AH           ;SETDMA
+	CALL    FUNC
+	LD      HL,1            ;set record size to 1
+	LD      (COMFCB+14),HL
+	LD      HL,3F00H        ;read all records to 100H..3FFFH
+	LD      DE,COMFCB
+	LD      C,27H           ;BLKRD
+	CALL    FUNC
+	JP      100H            ;jump to MSXDOS.SYS
+;
+BOOTERRVECT:
+	DEFW    BOOTERR
+;
+BOOTERR:
+$$DOSON:
+	CALL    0               ;dummy, modified later
+	LD      A,C
+	AND     0FEH
+	CP      2               ;drive not ready?
+	JP      NZ,BOOTERR1     ;no
+NOFILE:
+	LD      A,(NOTFIRST)
+	AND     A               ;running first time?
+	JP      Z,BASENT        ;yes, jump to disk basic
+BOOTERR1:
+	LD      DE,BOOTERR_MSG
+	CALL    STROUT
+	LD      C,7             ;DIRECT INPUT
+	CALL    FUNC
+	JR      TRYAGAIN
+;
+STROUT:
+	LD      A,(DE)
+	OR      A
+	RET     Z
+	PUSH    DE
+	LD      E,A
+	LD      C,6             ;DIRECT CONSOLE I/O
+	CALL    FUNC
+	POP     DE
+	INC     DE
+	JR      STROUT
+;
+BOOTERR_MSG:
+	DEFB    'Boot error',0DH,0AH
+	DEFB    'Press any key for retry',0DH,0AH,0
+;
+COMFCB:
+	DEFB    0,'MSXDOS  SYS'
+	DEFB    0,0,0,0,0,0,0,0,0,0
+	DEFB    0,0,0,0,0,0,0,0,0,0
+	DEFB    0,0,0,0,0
+;
+NOTFIRST:
+	DEFS    1
+;
+	.DEPHASE
+
+	END
+
