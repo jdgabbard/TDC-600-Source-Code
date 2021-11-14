@@ -1395,40 +1395,43 @@ J$7A1F:
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C$7A23:	PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        LD	HL,I$7A6A
-J$7A29:	LD	E,(HL)
-        INC	HL
-        LD	D,(HL)
-        LD	A,E
-        OR	D
-        JR	Z,J$7A44
+C$7A23:
+		PUSH HL
+        PUSH DE
+        PUSH BC
+        LD HL,I$7A6A
+J$7A29:	
+		LD E,(HL)
+        INC HL
+        LD D,(HL)
+        LD A,E
+        OR D
+        JR Z,J$7A44
 ;
-        PUSH	HL
-        LD	HL,(D.F34D)
-        ADD	HL,DE
-        EX	DE,HL
-        POP	HL
-        INC	HL
-        LD	C,(HL)
-        INC	HL
-        LD	B,(HL)
-        INC	HL
-        PUSH	HL
-        EX	DE,HL
-        LD	(HL),C
-        INC	HL
-        LD	(HL),B
-        POP	HL
-        JR	J$7A29
+        PUSH HL
+        LD HL,(D.F34D)
+        ADD HL,DE
+        EX DE,HL
+        POP HL
+        INC HL
+        LD C,(HL)
+        INC HL
+        LD B,(HL)
+        INC HL
+        PUSH HL
+        EX DE,HL
+        LD (HL),C
+        INC HL
+        LD (HL),B
+        POP HL
+        JR J$7A29
 ;
 ;	-----------------
-J$7A44:	POP	BC
-        POP	DE
-        POP	HL
-        RET	
+J$7A44:
+		POP BC
+        POP DE
+        POP HL
+        RET
 ;
 ;	-----------------
 ;
@@ -1436,352 +1439,380 @@ J$7A44:	POP	BC
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.7A48:	PUSH	HL
-        LD	HL,(D.F34D)
-        EX	(SP),HL
-        RET	
+C.7A48:
+		PUSH HL
+        LD HL,(D.F34D)
+        EX (SP),HL
+        RET
 ;
 ;	-----------------
-I$7A4E:	ADD	HL,HL
-        NOP	
-        LD	L,00H
-        INC	A
-        NOP	
-        LD	E,(HL)
-        NOP	
-        LD	H,H
-        NOP	
-        LD	(HL),C
-        NOP	
-        ADC	A,B
-        NOP	
-        DEC	DE
-        LD	BC,I$0156
-        LD	L,D
-        LD	BC,I$017A
-        LD	A,A
-        LD	BC,I$01A6
-        DEFB	0,0
-I$7A6A:	LD	A,(D$3E00)
-        LD	H,(HL)
-        LD	E,B
-        NOP	
-        LD	A,(DE)
-        LD	(HL),A
-        HALT	
+I$7A4E:
+		ADD HL,HL
+        NOP
+        LD L,00H
+        INC A
+        NOP
+        LD E,(HL)
+        NOP
+        LD H,H
+        NOP 
+        LD (HL),C
+        NOP
+        ADC A,B
+        NOP
+        DEC DE
+        LD BC,I$0156
+        LD L,D
+        LD BC,I$017A
+        LD A,A
+        LD BC,I$01A6
+        DEFB 0,0
+I$7A6A:	
+		LD A,(D$3E00)
+        LD H,(HL)
+        LD E,B
+        NOP 
+        LD A,(DE)
+        LD (HL),A
+        HALT
 ;
 ;	-----------------
-?.7A73:	DEFB	0,0,0
-        LD	A,B
-        DEFB	0,0,0
-        SUB	C
-        DEFB	0,0,0
-        SUB	E
-        DEFB	0,0,0,0,0
-I$7A84:	PUSH	IX
-        PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
+?.7A73:
+		DEFB 0,0,0
+        LD A,B
+        DEFB 0,0,0
+        SUB C
+        DEFB 0,0,0
+        SUB E
+        DEFB 0,0,0,0,0
+I$7A84:
+		PUSH IX
+        PUSH HL
+        PUSH DE
+        PUSH BC
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
 ;
-        PUSH	IX
-        LD	A,(D.F342)
-        LD	H,40H	; "@"
-        CALL	ENASLT
+        PUSH IX
+        LD A,(D.F342)
+        LD H,40H	; "@"
+        CALL ENASLT
 ;
-        POP	IX
-        LD	A,(IX+23)
-        LD	H,80H
-        CALL	ENASLT
+        POP IX
+        LD A,(IX+23)
+        LD H,80H
+        CALL ENASLT
 ;
-        POP	BC
-        POP	DE
-        POP	HL
-        POP	IX
-J$7AA8:	DEC	HL
-        LD	A,H
-        ADD	A,02H	; 2 
-        INC	HL
-        JP	M,J$00AF
+        POP BC
+        POP DE
+        POP HL
+        POP IX
+J$7AA8:
+		DEC HL
+        LD A,H
+        ADD A,02H	; 2 
+        INC HL
+        JP M,J$00AF
 ;
-        LD	E,07H	; 7 
-J$7AB2:	CALL	C$0147
+        LD E,07H	; 7 
+J$7AB2:
+		CALL C$0147			;CALL FORMAT from MSX-BIOS ?
 ;
-        PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        LD	BC,0
-        LD	DE,D.8000
-        LD	A,45H	; "E"
-        CALL	C$0165
+        PUSH HL
+        PUSH DE
+        PUSH BC
+        LD BC,0
+        LD DE,D.8000
+        LD A,45H	; "E"
+        CALL C$0165			;CHKNEW from MSX-BIOS ?
 ;
-J.7AC3:	LD	A,(DE)
-        RLA	
-        JR	C,J.7AD7
+J.7AC3:
+		LD A,(DE)
+        RLA
+        JR C,J.7AD7
 ;
-        DJNZ	J.7AC3
+        DJNZ J.7AC3
 ;
-        DEC	C
-        LD	A,(DE)
-        RLA	
-        JR	C,J.7AD7
+        DEC C
+        LD A,(DE)
+        RLA
+        JR C,J.7AD7
 ;
-        JR	NZ,J.7AC3
+        JR NZ,J.7AC3
 ;
-        SCF	
-        JR	J$7AE5
-;
-;	-----------------
-J.7AD3:	LD	A,(DE)
-        RLA	
-        JR	NC,J.7AD3
-;
-J.7AD7:	AND	40H	; "@"
-        JR	Z,J$7AE2
-;
-        INC	E
-        LD	A,(HL)
-        LD	(DE),A
-        DEC	E
-        INC	HL
-        JR	J.7AD3
+        SCF
+        JR J$7AE5
 ;
 ;	-----------------
-J$7AE2:	CALL	C$0193
+J.7AD3:
+		LD A,(DE)
+        RLA
+        JR NC,J.7AD3
 ;
-J$7AE5:	POP	BC
-        POP	DE
-        POP	HL
-        JP	C,J$00A7
+J.7AD7:
+		AND 40H	; "@"
+        JR Z,J$7AE2
 ;
-        LD	A,(IX+15)
-        AND	7FH
-        JR	NZ,J$7AFA
-;
-        DEC	B
-        JR	Z,J$7B33
-;
-        CALL	C$00DD
-;
-        JR	J$7AA8
+        INC E
+        LD A,(HL)
+        LD (DE),A
+        DEC E
+        INC HL
+        JR J.7AD3
 ;
 ;	-----------------
-J$7AFA:	BIT	1,A
-        JR	NZ,J$7B30
+J$7AE2:
+		CALL C$0193			;Call to bios - where?
 ;
-        PUSH	AF
-        LD	A,(IX+6)
-        AND	01H	; 1 
-        INC	A
-        CPL	
-        AND	(IX+11)
-        LD	(IX+11),A
-        CALL	C.011F
+J$7AE5:
+		POP BC
+        POP DE
+        POP HL
+        JP C,J$00A7
 ;
-        POP	AF
-        DEC	E
-        JR	NZ,J$7AB2
+        LD A,(IX+15)
+        AND 7FH
+        JR NZ,J$7AFA
 ;
-        SCF	
-        LD	E,A
-        BIT	4,E
-        LD	A,0AH	; 10 
-        JR	NZ,J.7B32
+        DEC B
+        JR Z,J$7B33
 ;
-        BIT	2,E
-        LD	A,08H	; 8 
-        JR	NZ,J.7B32
+        CALL C$00DD			;Cant be call to bios, this is middle of paddle routine
 ;
-        BIT	5,E
-        LD	A,04H	; 4 
-        JR	NZ,J.7B32
-;
-        LD	A,0CH	; 12 
-        JR	J.7B32
+        JR J$7AA8
 ;
 ;	-----------------
-?.7B2B:	LD	A,02H	; 2 
-        SCF	
-        JR	J.7B32
+J$7AFA:
+		BIT 1,A
+        JR NZ,J$7B30
+;
+        PUSH AF
+        LD A,(IX+6)
+        AND 01H	; 1 
+        INC A
+        CPL
+        AND (IX+11)
+        LD (IX+11),A
+        CALL C.011F
+;
+        POP AF
+        DEC E
+        JR NZ,J$7AB2
+;
+        SCF
+        LD E,A
+        BIT 4,E
+        LD A,0AH	; 10 
+        JR NZ,J.7B32
+;
+        BIT 2,E
+        LD A,08H	; 8 
+        JR NZ,J.7B32
+;
+        BIT 5,E
+        LD A,04H	; 4 
+        JR NZ,J.7B32
+;
+        LD A,0CH	; 12 
+        JR J.7B32
 ;
 ;	-----------------
-J$7B30:	XOR	A
-        SCF	
-J.7B32:	SCF	
-J$7B33:	PUSH	IX
-        PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        PUSH	AF
-        PUSH	IX
-        LD	A,(IX+22)
-        LD	H,80H
-        CALL	ENASLT
-;
-        CALL	C$F368
-;
-        POP	IX
-        PUSH	IX
-        LD	A,(IX+23)
-        LD	H,40H	; "@"
-        CALL	ENASLT
-;
-        POP	IX
-        LD	A,(IX+23)
-        CALL	C.7437			; Set slotid on page 0
-;
-        POP	AF
-        POP	BC
-        POP	DE
-        POP	HL
-        POP	IX
-        RET	
+?.7B2B:
+		LD A,02H	; 2 
+        SCF
+        JR J.7B32
 ;
 ;	-----------------
-?.7B61:	INC	H
-        INC	H
-        LD	A,(IX+9)
-        INC	A
-        LD	(IX+9),A
-        BIT	7,D
-        JR	NZ,J$7B71
+J$7B30:
+		XOR A
+        SCF
+J.7B32:
+		SCF
+J$7B33:
+		PUSH IX
+        PUSH HL
+        PUSH DE
+        PUSH BC
+        PUSH AF
+        PUSH IX
+        LD A,(IX+22)
+        LD H,80H
+        CALL ENASLT
 ;
-        CP	0AH	; 10 
-        RET	C
+        CALL C$F368
 ;
-J$7B71:	CP	09H	; 9 
-        RET	C
+        POP IX
+        PUSH IX
+        LD A,(IX+23)
+        LD H,40H	; "@"
+        CALL ENASLT
 ;
-        LD	A,01H	; 1 
-        LD	(IX+9),A
-        BIT	6,D
-        JR	Z,J.7B8F
+        POP IX
+        LD A,(IX+23)
+        CALL C.7437			; Set slotid on page 0
 ;
-        BIT	2,D
-        JR	NZ,J.7B8F
-;
-        SET	2,D
-        LD	A,D
-        AND	0FH	; 15 
-        LD	(IX+6),A
-        LD	A,01H	; 1 
-        LD	(IX+8),A
-        RET	
-;
-;	-----------------
-J.7B8F:	RES	2,D
-        LD	A,D
-        AND	0FH	; 15 
-        LD	(IX+6),A
-        XOR	A
-        LD	(IX+8),A
-        INC	C
-        LD	(IX+7),C
-        CALL	C.011F
-;
-        RET	
+        POP AF
+        POP BC
+        POP DE
+        POP HL
+        POP IX
+        RET
 ;
 ;	-----------------
-?.7BA3:	PUSH	BC
-        PUSH	DE
-        PUSH	HL
-        LD	A,(IX+23)
-        LD	H,40H	; "@"
-        CALL	ENASLT
-        LD	A,(IX+23)
-        CALL	C.7437			; Set slotid on page 0
-        POP	HL
-        CALL	C.77E2
-        PUSH	HL
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
-        LD	A,(D.F342)
-        LD	H,40H	; "@"
-        CALL	ENASLT
-        POP	HL
-        POP	DE
-        POP	BC
-        RET	
+?.7B61:
+		INC H
+        INC H
+        LD A,(IX+9)
+        INC A
+        LD (IX+9),A
+        BIT 7,D
+        JR NZ,J$7B71
+;
+        CP 0AH	; 10 
+        RET C
+;
+J$7B71:
+		CP 09H	; 9 
+        RET C
+;
+        LD A,01H	; 1 
+        LD (IX+9),A
+        BIT 6,D
+        JR Z,J.7B8F
+;
+        BIT 2,D
+        JR NZ,J.7B8F
+;
+        SET 2,D
+        LD A,D
+        AND 0FH	; 15 
+        LD (IX+6),A
+        LD A,01H	; 1 
+        LD (IX+8),A
+        RET
 ;
 ;	-----------------
-?.7BCB:	LD	A,(D.8000)
-        AND	0D0H
-        XOR	80H
-        RET	Z
+J.7B8F:
+		RES 2,D
+        LD A,D
+        AND 0FH	; 15 
+        LD (IX+6),A
+        XOR A
+        LD (IX+8),A
+        INC C
+        LD (IX+7),C
+        CALL C.011F
 ;
-        XOR	A
-        LD	(IX+11),A
-        LD	(D.9000),A
-        CALL	C.0160
-;
-        LD	A,(IX+12)
-        LD	(D.9000),A
-        RET	
-;
-;	-----------------
-?.7BE4:	EX	(SP),HL
-        EX	(SP),HL
-        EX	(SP),HL
-        EX	(SP),HL
-        RET	
+        RET
 ;
 ;	-----------------
-?.7BE9:	PUSH	BC
-        LD	B,06H	; 6 
-        PUSH	IX
-J$7BEE:	CALL	C.0184
-;
-        LD	A,(IX+6)
-        INC	IX
-        DJNZ	J$7BEE
-;
-        POP	IX
-        POP	BC
-        LD	A,(IX+9)
-        CALL	C.0184
-;
-        LD	A,1BH
-        CALL	C.0184
-;
-        LD	A,0FFH
-        PUSH	AF
-J$7C09:	LD	A,(D.8000)
-        AND	0E0H
-        CP	80H
-        JR	NZ,J$7C09
-;
-        POP	AF
-        LD	(D.8001),A
-        RET	
+?.7BA3:
+		PUSH BC
+        PUSH DE
+        PUSH HL
+        LD A,(IX+23)
+        LD H,40H	; "@"
+        CALL ENASLT
+        LD A,(IX+23)
+        CALL C.7437			; Set slotid on page 0
+        POP HL
+        CALL C.77E2
+        PUSH HL
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
+        LD A,(D.F342)
+        LD H,40H	; "@"
+        CALL ENASLT
+        POP HL
+        POP DE
+        POP BC
+        RET
 ;
 ;	-----------------
-?.7C17:	PUSH	IX
-J.7C19:	LD	A,(D.8000)
-        AND	0C0H
-        CP	0C0H
-        JR	NZ,J.7C19
+?.7BCB:
+		LD A,(D.8000)
+        AND 0D0H
+        XOR 80H
+        RET Z
 ;
-        LD	A,(D.8001)
-        LD	(IX+14),A
-        INC	IX
-        CALL	C.0160
+        XOR A
+        LD (IX+11),A
+        LD (D.9000),A
+        CALL C.0160
 ;
-        LD	A,(D.8000)
-        AND	0C0H
-        CP	80H
-        JR	NZ,J.7C19
+        LD A,(IX+12)
+        LD (D.9000),A
+        RET
 ;
-        POP	IX
-        RET	
+;	-----------------
+?.7BE4:
+		EX (SP),HL
+        EX (SP),HL
+        EX (SP),HL
+        EX (SP),HL
+        RET
+;
+;	-----------------
+?.7BE9:
+		PUSH BC
+        LD B,06H	; 6 
+        PUSH IX
+J$7BEE:
+		CALL C.0184
+;
+        LD A,(IX+6)
+        INC IX
+        DJNZ J$7BEE
+;
+        POP IX
+        POP BC
+        LD A,(IX+9)
+        CALL C.0184
+;
+        LD A,1BH
+        CALL C.0184
+;
+        LD A,0FFH
+        PUSH AF
+J$7C09:
+		LD A,(D.8000)
+        AND 0E0H
+        CP 80H
+        JR NZ,J$7C09
+;
+        POP AF
+        LD (D.8001),A
+        RET
+;
+;	-----------------
+?.7C17:
+		PUSH IX
+J.7C19:
+		LD A,(D.8000)
+        AND 0C0H
+        CP 0C0H
+        JR NZ,J.7C19
+;
+        LD A,(D.8001)
+        LD (IX+14),A
+        INC IX
+        CALL C.0160
+;
+        LD A,(D.8000)
+        AND 0C0H
+        CP 80H
+        JR NZ,J.7C19
+;
+        POP IX
+        RET
 
 ;	  Subroutine CHOICE
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 CHOICE:
-        LD	HL,I$7C3D
-        RET	
+        LD HL,I$7C3D
+        RET
 ;
 
 
@@ -1818,302 +1849,331 @@ I$7C3D:
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
-DSKFMT:	
-        CALL	C.FFCF
-        DI	
-        CALL	C.7473			; Enable FDC on page 0
-J$7CA5	EQU	$-1
-        DEC	A
-        JR	Z,J.7CAF
-        BIT	0,A
-        JR	NZ,J.7CAF
-J$7CAC	EQU	$-1
-        LD	A,05H	; 5 
-J.7CAF:	ADD	A,0F8H
+DSKFMT:
+        CALL C.FFCF
+        DI
+        CALL C.7473			; Enable FDC on page 0
+J$7CA5	EQU $-1				; Equates way down here?!?!
+        DEC A
+        JR Z,J.7CAF
+        BIT 0,A
+        JR NZ,J.7CAF
+J$7CAC	EQU $-1
+        LD A,05H	; 5 
+J.7CAF:
+		ADD A,0F8H
         LD	C,A
-J$7CB2:	PUSH	AF
-        LD	A,D
-        CP	02H	; 2 
-J$7CB6:	JR	C,J$7CBE
+J$7CB2:
+		PUSH AF
+        LD A,D
+        CP 02H	; 2 
+J$7CB6:
+		JR C,J$7CBE
 ;
-        POP	AF
-        LD	A,0CH	; 12 
-        JP	J.7D8D
-J$7CBC	EQU	$-2
+        POP AF
+        LD A,0CH	; 12 
+        JP J.7D8D
+		
+J$7CBC	EQU $-2
+
 ;
 ;	-----------------
-J$7CBE:	LD	DE,0
-        CALL	C.76E4
+J$7CBE:
+		LD DE,0
+        CALL C.76E4
 ;
-        POP	BC
-        LD	A,06H	; 6 
-J$7CC7:	JP	C,J.7D8D
+        POP BC
+        LD A,06H	; 6 
+J$7CC7:
+		JP C,J.7D8D
 ;
-        LD	A,B
-        LD	(IX+13),A
-        LD	A,01H	; 1 
-        EX	AF,AF'
-J.7CD1:	PUSH	DE
-        PUSH	IX
-        POP	HL
-        LD	BC,I$0007
-        ADD	HL,BC
-        PUSH	HL
-J$7CDA:	LD	C,01H	; 1 
-        LD	A,4DH	; "M"
-        CALL	C.785B
+        LD A,B
+        LD (IX+13),A
+        LD A,01H	; 1 
+        EX AF,AF'
+J.7CD1:
+		PUSH DE
+        PUSH IX
+        POP HL
+        LD BC,I$0007
+        ADD HL,BC
+        PUSH HL
+J$7CDA:
+		LD C,01H	; 1 
+        LD A,4DH	; "M"
+        CALL C.785B
 ;
-        LD	A,D
-        CALL	C.785B
+        LD A,D
+        CALL C.785B
 J$7CE3	EQU	$-2
 ;
-        LD	A,02H	; 2 
-        CALL	C.785B
+        LD A,02H	; 2 
+        CALL C.785B
 ;
-        LD	A,09H	; 9 
-        CALL	C.785B
+        LD A,09H	; 9 
+        CALL C.785B
 ;
-        LD	A,52H	; "R"
-        CALL	C.785B
+        LD A,52H	; "R"
+        CALL C.785B
 ;
-        LD	A,0E5H
-        LD	DE,0
-J$7CF9:	CALL	C.785B
+        LD A,0E5H
+        LD DE,0
+J$7CF9:
+		CALL C.785B
 ;
-J$7CFC:	LD	B,04H	; 4 
-        EX	AF,AF'
-        LD	(IX+9),A
-        INC	A
-        EX	AF,AF'
-        POP	HL
-        PUSH	HL
-J.7D06:	LD	A,(DE)
-        RLA	
-        JR	NC,J.7D06
+J$7CFC:
+		LD B,04H	; 4 
+        EX AF,AF'
+        LD (IX+9),A
+        INC A
+        EX AF,AF'
+        POP HL
+        PUSH HL
+J.7D06:
+		LD A,(DE)
+        RLA
+        JR NC,J.7D06
 ;
-        AND	40H	; "@"
-        JR	Z,J$7D17
+        AND 40H	; "@"
+        JR Z,J$7D17
 ;
-        LD	A,(HL)
-        INC	E
-        LD	(DE),A
-        DEC	E
-        INC	HL
-        DJNZ	J.7D06
+        LD A,(HL)
+        INC E
+        LD (DE),A
+        DEC E
+        INC HL
+        DJNZ J.7D06
 ;
-        JR	J$7CFC
-;
-;	-----------------
-J$7D17:	POP	HL
-        POP	DE
-        CALL	C.786A
-;
-        BIT	1,(IX+15)
-        JR	NZ,J$7D8B
-;
-        BIT	2,D
-        JR	NZ,J.7D3F
-;
-        LD	A,(IX+13)
-        CP	0F8H
-        JR	Z,J.7D3F
-;
-        SET	2,D
-        LD	(IX+6),D
-        LD	(IX+8),01H	; 1 
-        LD	(IX+9),01H	; 1 
-        LD	A,01H	; 1 
-        EX	AF,AF'
-        JR	J.7CD1
+        JR J$7CFC
 ;
 ;	-----------------
-J.7D3F:	LD	C,27H	; "'"
-        LD	A,(IX+13)
-        CP	0FDH
-        JR	Z,J$7D4A
+J$7D17:
+		POP HL
+        POP DE
+        CALL C.786A
 ;
-        LD	C,4FH	; "O"
-J$7D4A:	LD	A,(IX+7)
-        CP	C
-        JR	Z,J$7D91
+        BIT 1,(IX+15)
+        JR NZ,J$7D8B
 ;
-        INC	A
-        LD	(IX+7),A
-        IN	A,(0AAH)
-        AND	0F0H
-        ADD	A,07H	; 7 
-        OUT	(0AAH),A
-        IN	A,(0A9H)
-        AND	10H	; 16 
-        JR	NZ,J$7D6D
+        BIT 2,D
+        JR NZ,J.7D3F
 ;
-        IN	A,(0AAH)
-        DEC	A
-        OUT	(0AAH),A
-        IN	A,(0A9H)
-        AND	02H	; 2 
-        JR	Z,J$7D87
+        LD A,(IX+13)
+        CP 0F8H
+        JR Z,J.7D3F
 ;
-J$7D6D:	RES	2,D
-        LD	(IX+6),D
-        LD	(IX+8),00H
-        LD	(IX+9),01H	; 1 
-        CALL	C.77E2
-;
-        LD	A,01H	; 1 
-        EX	AF,AF'
-        JP	NC,J.7CD1
-;
-J$7D83:	LD	A,06H	; 6 
-        JR	J.7D8D
+        SET 2,D
+        LD (IX+6),D
+        LD (IX+8),01H	; 1 
+        LD (IX+9),01H	; 1 
+        LD A,01H	; 1 
+        EX AF,AF'
+        JR J.7CD1
 ;
 ;	-----------------
-J$7D87:	LD	A,0AH	; 10 
-        JR	J.7D8D
+J.7D3F:
+		LD C,27H	; "'"
+        LD A,(IX+13)
+        CP 0FDH
+        JR Z,J$7D4A
+;
+        LD C,4FH	; "O"
+J$7D4A:
+		LD A,(IX+7)
+        CP C
+        JR Z,J$7D91
+;
+        INC A
+        LD (IX+7),A
+        IN A,(0AAH)
+        AND 0F0H
+        ADD A,07H	; 7 
+        OUT (0AAH),A
+        IN A,(0A9H)
+        AND 10H	; 16 
+        JR NZ,J$7D6D
+;
+        IN A,(0AAH)
+        DEC A
+        OUT (0AAH),A
+        IN A,(0A9H)
+        AND 02H	; 2 
+        JR Z,J$7D87
+;
+J$7D6D:
+		RES 2,D
+        LD (IX+6),D
+        LD (IX+8),00H
+        LD (IX+9),01H	; 1 
+        CALL C.77E2
+;
+        LD A,01H	; 1 
+        EX AF,AF'
+        JP NC,J.7CD1
+;
+J$7D83:
+		LD A,06H	; 6 
+        JR J.7D8D
 ;
 ;	-----------------
-J$7D8B:	LD	A,00H
-J.7D8D:	SCF	
-        JP	J.753B
+J$7D87:
+		LD A,0AH	; 10 
+        JR J.7D8D
 ;
 ;	-----------------
-J$7D91:	XOR	A
-        LD	(IX+7),A
-        RES	2,D
-        LD	(IX+6),D
-        LD	(IX+8),00H
-        LD	(IX+9),01H	; 1 
-        CALL	C.77E2
-        JR	C,J$7D83
-        CALL	GETWRK
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
-        LD	HL,(D.F34D)
-        PUSH	HL
-        PUSH	HL
-        POP	DE
-        INC	DE
-        LD	(HL),00H
-        LD	BC,C.0200
-        LDIR	
-        LD	HL,I$7E92
-        POP	DE
-        LD	BC,I$00DB
-        LDIR	
-        LD	A,(IX+13)
-        LD	IY,(D.F34D)
-        LD	(IY+21),A
-        CP	0F8H
-        JR	NZ,J$7DDB
-        LD	(IY+26),01H	; 1 
-        JR	J.7DEB
+J$7D8B:
+		LD A,00H
+J.7D8D:
+		SCF
+        JP J.753B
 ;
 ;	-----------------
-J$7DDB:	CP	0F9H
-        JR	NZ,J.7DEB
-        LD	(IY+22),03H	; 3 
-        LD	(IY+19),0A0H
-        LD	(IY+20),05H	; 5 
-J.7DEB:	LD	HL,(D.F34D)
-        LD	DE,0
-        LD	B,01H	; 1 
-        LD	C,A
-        LD	A,(IX+6)
-        AND	03H	; 3 
-        SCF	
-        PUSH	IX
-        CALL	C.752E
-;
-        POP	IX
-        JP	C,J.7E7B
-;
-        LD	HL,(D.F34D)
-        PUSH	HL
-        POP	IY
-        LD	A,(IY+16)
-        LD	B,00H
-J$7E0F:	LD	(HL),00H
-        INC	HL
-        DJNZ	J$7E0F
-;
-        ADD	A,A
-        ADD	A,07H	; 7 
-        LD	B,A
-        LD	DE,1
-J$7E1B:	LD	A,(IX+13)
-        PUSH	BC
-        PUSH	DE
-        LD	HL,(D.F34D)
-        LD	B,01H	; 1 
-        LD	C,A
-        LD	A,(IX+6)
-        AND	03H	; 3 
-        SCF	
-        PUSH	IX
-        CALL	C.752E
-;
-        POP	IX
-        POP	DE
-        POP	BC
-        JP	C,J.7E7B
-;
-        INC	DE
-        DJNZ	J$7E1B
-;
-        LD	HL,(D.F34D)
-        LD	A,(IX+13)
-        LD	(HL),A
-        INC	HL
-        LD	(HL),0FFH
-        INC	HL
-        LD	(HL),0FFH
-        LD	HL,(D.F34D)
-        LD	B,01H	; 1 
-        LD	C,A
-        LD	DE,1
-        LD	A,(IX+6)
-        AND	03H	; 3 
-        SCF	
-        PUSH	IX
-        CALL	C.752E
-;
-        POP	IX
-        JP	C,J.7E7B
-;
-        LD	HL,(D.F34D)
-        LD	A,(IX+13)
-        LD	B,01H	; 1 
-        LD	C,A
-        LD	DE,2
-        CP	0F9H
-        JR	NZ,J$7E72
-;
-        INC	DE
-J$7E72:	SCF	
-        LD	A,(IX+6)
-        AND	03H	; 3 
-        JP	C.752E
+J$7D91:
+		XOR A
+        LD (IX+7),A
+        RES 2,D
+        LD (IX+6),D
+        LD (IX+8),00H
+        LD (IX+9),01H	; 1 
+        CALL C.77E2
+        JR C,J$7D83
+        CALL GETWRK
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
+        LD HL,(D.F34D)
+        PUSH HL
+        PUSH HL
+        POP DE
+        INC DE
+        LD (HL),00H
+        LD BC,C.0200
+        LDIR
+        LD HL,I$7E92
+        POP DE
+        LD BC,I$00DB
+        LDIR
+        LD A,(IX+13)
+        LD IY,(D.F34D)
+        LD (IY+21),A
+        CP 0F8H
+        JR NZ,J$7DDB
+        LD (IY+26),01H	; 1 
+        JR J.7DEB
 ;
 ;	-----------------
-J.7E7B:	PUSH	AF
-        LD	C,00H
-        LD	(IX),0C8H
-        LD	A,(IX+13)
-        AND	A
-        JR	NZ,J$7E8D
+J$7DDB:
+		CP 0F9H
+        JR NZ,J.7DEB
+        LD (IY+22),03H	; 3 
+        LD (IY+19),0A0H
+        LD (IY+20),05H	; 5 
+J.7DEB:
+		LD HL,(D.F34D)
+        LD DE,0
+        LD B,01H	; 1 
+        LD C,A
+        LD A,(IX+6)
+        AND 03H	; 3 
+        SCF
+        PUSH IX
+        CALL C.752E
 ;
-        LD	(IX+1),C
-        POP	AF
-        RET	
+        POP IX
+        JP C,J.7E7B
+;
+        LD HL,(D.F34D)
+        PUSH HL
+        POP IY
+        LD A,(IY+16)
+        LD B,00H
+J$7E0F:
+		LD (HL),00H
+        INC HL
+        DJNZ J$7E0F
+;
+        ADD A,A
+        ADD A,07H	; 7 
+        LD B,A
+        LD DE,1
+J$7E1B:
+		LD A,(IX+13)
+        PUSH BC
+        PUSH DE
+        LD HL,(D.F34D)
+        LD B,01H	; 1 
+        LD C,A
+        LD A,(IX+6)
+        AND 03H	; 3 
+        SCF
+        PUSH IX
+        CALL C.752E
+;
+        POP IX
+        POP DE
+        POP BC
+        JP C,J.7E7B
+;
+        INC DE
+        DJNZ J$7E1B
+;
+        LD HL,(D.F34D)
+        LD A,(IX+13)
+        LD (HL),A
+        INC HL
+        LD (HL),0FFH
+        INC HL
+        LD (HL),0FFH
+        LD HL,(D.F34D)
+        LD B,01H	; 1 
+        LD C,A
+        LD DE,1
+        LD A,(IX+6)
+        AND 03H	; 3 
+        SCF
+        PUSH IX
+        CALL C.752E
+;
+        POP IX
+        JP C,J.7E7B
+;
+        LD HL,(D.F34D)
+        LD A,(IX+13)
+        LD B,01H	; 1 
+        LD C,A
+        LD DE,2
+        CP 0F9H
+        JR NZ,J$7E72
+;
+        INC DE
+J$7E72:
+		SCF
+        LD A,(IX+6)
+        AND 03H	; 3 
+        JP C.752E
 ;
 ;	-----------------
-J$7E8D:	LD	(IX+2),C
-        POP	AF
-        RET	
+J.7E7B:
+		PUSH AF
+        LD C,00H
+        LD (IX),0C8H
+        LD A,(IX+13)
+        AND A
+        JR NZ,J$7E8D
+;
+        LD (IX+1),C
+        POP AF
+        RET
 ;
 ;	-----------------
-I$7E92:	EX	DE,HL
-        CP	90H
+J$7E8D:
+		LD (IX+2),C
+        POP AF
+        RET
+;
+;	-----------------
+I$7E92:
+		EX DE,HL
+        CP 90H
 
 ;Data String = TALENT
         
@@ -2121,90 +2181,94 @@ I$7E92:	EX	DE,HL
 
 ;ID STRING??? = 00H,02H,02H,01H,00H,02H,70H,00H,D0H,02H,FDH,02H,00H,09H,00H,02H,00H,00H,00H
 ;-----------------------
-        LD	(BC),A
-        LD	(BC),A
-        LD	BC,C.0200
-        LD	(HL),B
-        NOP	
-        RET	NC
+        LD (BC),A
+        LD (BC),A
+        LD BC,C.0200
+        LD (HL),B
+        NOP
+        RET NC
 ;
-        LD	(BC),A
-        DEFB	0FDH		; << Illegal Op Code Byte >>
+        LD (BC),A
+        DEFB 0FDH		; << Illegal Op Code Byte >>
 
-        LD	(BC),A
-        NOP	
-        ADD	HL,BC
-        NOP	
-        LD	(BC),A
-        DEFB	0,0,0
+        LD (BC),A
+        NOP
+        ADD HL,BC
+        NOP
+        LD (BC),A
+        DEFB 0,0,0
 ;-----------------------
 		
 
-        RET	NC
+        RET NC
 ;
-        LD	(D$C059),DE
-        LD	(D.C0DA),A
-        LD	(HL),56H	; "V"
-        INC	HL
-        LD	(HL),0C0H
-J$7EBD:	LD	SP,I$F51F
-        LD	DE,I.C0B5
-        LD	C,0FH	; 15 
-        CALL	C.F37D
-        INC	A
-        JP	Z,J$C063
-        LD	DE,J.0100
-        LD	C,1AH
-        CALL	C.F37D
-        LD	HL,1
-        LD	(D$C0C3),HL
-        LD	HL,04000H-0100H
-        LD	DE,I.C0B5
-        LD	C,27H	; "'"
-        CALL	C.F37D
-        JP	J.0100
-;
-;	-----------------
-?.7EE8:	LD	E,B
-        RET	NZ
-        CALL	0
-        LD	A,C
-        AND	0FEH
-        CP	02H	; 2 
-        JP	NZ,J$C06A
-;
-        LD	A,(D.C0DA)
-        AND	A
-        JP	Z,J$4022
-;
-        LD	DE,I$C08F
-        CALL	C$C081
-;
-        LD	C,07H	; 7 
-        CALL	C.F37D
-;
-        JR	J$7EBD
+        LD (D$C059),DE
+        LD (D.C0DA),A
+        LD (HL),56H	; "V"
+        INC HL
+        LD (HL),0C0H
+J$7EBD:
+		LD SP,I$F51F
+        LD DE,I.C0B5
+        LD C,0FH	; 15 
+        CALL C.F37D
+        INC A
+        JP Z,J$C063
+        LD DE,J.0100
+        LD C,1AH
+        CALL C.F37D
+        LD HL,1
+        LD (D$C0C3),HL
+        LD HL,04000H-0100H
+        LD DE,I.C0B5
+        LD C,27H	; "'"
+        CALL C.F37D
+        JP J.0100
 ;
 ;	-----------------
-?.7F09:	CP	C
-        RES	6,A
-        CALL	C$F2F6
+?.7EE8:
+		LD E,B
+        RET NZ
+        CALL 0
+        LD A,C
+        AND 0FEH
+        CP 02H	; 2 
+        JP NZ,J$C06A
 ;
-        CALL	PE,C$F8FD
+        LD A,(D.C0DA)
+        AND A
+        JP Z,J$4022
 ;
-        CP	C
-J$7F13:	LD	A,(DE)
-        OR	A
-        RET	Z
+        LD DE,I$C08F
+        CALL C$C081
 ;
-        PUSH	DE
-        LD	E,A
-        LD	C,06H	; 6 
-        CALL	C.F37D
+        LD C,07H	; 7 
+        CALL C.F37D
 ;
-        POP	DE
-        INC	DE
-        JR	J$7F13
+        JR J$7EBD
+;
+;	-----------------
+?.7F09:
+		CP C
+        RES 6,A
+        CALL C$F2F6
+;
+        CALL PE,C$F8FD
+;
+        CP C
+J$7F13:
+		LD A,(DE)
+        OR A
+        RET Z
+;
+        PUSH DE
+        LD E,A
+        LD C,06H	; 6 
+        CALL C.F37D
+;
+        POP DE
+        INC DE
+        JR J$7F13
 ;
 ;	-----------------
 ?.7F21:	
@@ -2228,5 +2292,5 @@ J$7F13:	LD	A,(DE)
 
 		ORG 7F6DH
 OEMSTA:
-        SCF	
-        RET	
+        SCF
+        RET
