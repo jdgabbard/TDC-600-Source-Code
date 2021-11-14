@@ -1383,10 +1383,11 @@ J$7A02:
         JR J$7A02
 ;
 ;	-----------------
-J$7A1F:	POP	BC
-        POP	DE
-        POP	HL
-        RET	
+J$7A1F:
+		POP BC
+        POP DE
+        POP HL
+        RET
 ;
 ;	-----------------
 ;
