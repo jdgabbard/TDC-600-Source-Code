@@ -105,8 +105,8 @@ C.F37D	EQU	0F37DH	; -C---
 I$F51F	EQU	0F51FH	; ----I
 C$F8FD	EQU	0F8FDH	; -C---
 EXPTBL	EQU	0FCC1H	; ----I
-DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - BEFORE INTERACT W/ DISK
-ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - AFTER INTERACT W/ DISK
+DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - DISABLING INTERRUPTS - BEFORE INTERACT W/ DISK
+ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - ENABLING INTERRUPTS - AFTER INTERACT W/ DISK
 SSLTRG	EQU	0FFFFH	; --SL-		SECONDARY SLOT REGISTER
 
 MYSIZE	EQU	25
@@ -1141,12 +1141,12 @@ INIHRD:
         LD A,00H
         CALL C.785B
         LD HL,0
-J$78E6:
+INIHRD2:
 		CALL C.7837
         DEC HL
         LD A,H
         OR L
-        JR NZ,J$78E6
+        JR NZ,INIHRD2
         LD A,0CH
         LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         POP AF
@@ -1190,16 +1190,16 @@ DRIVES:
         CALL C.785B
         CALL C.788C
         LD L,1
-        JR C,J$7930
+        JR C,DRIVES2
         LD L,2
-J$7930:
+DRIVES2:
 		LD (IX+5),L
         LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD (D.1000),A
         POP AF
-        JR Z,J$793D
+        JR Z,DRIVES3
         LD L,2
-J$793D:	
+DRIVES3:	
 		PUSH HL
         PUSH AF
         CALL GETWRK
@@ -1219,16 +1219,16 @@ INIENV:
         LD D,(IX+5)
         XOR A
         LD B,19H
-J$7955:
+INIENV2:
 		LD (HL),A
         INC HL
-        DJNZ J$7955
+        DJNZ INIENV2
         LD (IX+5),D
         LD (IX+10),02H	; 2 
         LD HL,I$7966
         JP SETINT
 
-I$7966:
+I$7966:						;Disk drive interrupt handler?
 		PUSH AF
         CALL GETWRK
         LD A,(HL)
@@ -1278,9 +1278,9 @@ DSKCHG:
         POP HL
         AND A
         LD B,(IX+2)
-        JR NZ,J$79A9
+        JR NZ,DSKCHG2
         LD B,(IX+1)
-J$79A9:
+DSKCHG2:
 		INC B
         DEC B
         LD B,01H	; 1 
@@ -1290,14 +1290,14 @@ J$79A9:
         LD DE,1
         LD HL,(D.F34D)
         CALL C.752E
-        JR C,J.79D2
+        JR C,DSKCHG3
         LD HL,(D.F34D)
         LD B,(HL)
         POP HL
         PUSH BC
-        CALL C$79D5
+        CALL GETDPB
         LD A,0CH	; 12 
-        JR C,J.79D2
+        JR C,DSKCHG3
         POP AF
         POP BC
         CP C
@@ -1309,8 +1309,8 @@ J$79A9:
         RET
 ;
 ;	-----------------
-J.79D2:
-		POP DE
+DSKCHG3:
+		POP DE			;Not sure why we're throwing away BC register saves
         POP DE
         RET
 
@@ -1318,8 +1318,8 @@ J.79D2:
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
-GETDPB:
-C$79D5:	EI 
+
+GETDPB:	EI 
         EX DE,HL
         INC DE
         LD A,B
