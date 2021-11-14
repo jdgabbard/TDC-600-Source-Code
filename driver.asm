@@ -98,16 +98,16 @@ I.C0B5	EQU	0C0B5H	; ----I
 D$C0C3	EQU	0C0C3H	; --S--
 D.C0DA	EQU	0C0DAH	; --SL-
 C$F2F6	EQU	0F2F6H	; -C---
-D.F342	EQU	0F342H	; ---L-
+RAMAD1	EQU	0F342H	; ---L-		;SLOT ADDR OF RAM IN PAGE 1
 D.F34D	EQU	0F34DH	; --SL-
 C$F368	EQU	0F368H	; -C---
 C.F37D	EQU	0F37DH	; -C---
 I$F51F	EQU	0F51FH	; ----I
 C$F8FD	EQU	0F8FDH	; -C---
-I$FCC1	EQU	0FCC1H	; ----I
-C.FFCF	EQU	0FFCFH	; -C---
-C$FFD4	EQU	0FFD4H	; -C---
-D.FFFF	EQU	0FFFFH	; --SL-
+EXPTBL	EQU	0FCC1H	; ----I
+DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - BEFORE INTERACT W/ DISK
+ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - AFTER INTERACT W/ DISK
+SSLTRG	EQU	0FFFFH	; --SL-		SECONDARY SLOT REGISTER
 
 MYSIZE	EQU	25
 
@@ -136,7 +136,7 @@ J$7413:
 		AND 03H					; primary slot - probably bit mask ?
         LD E,A					; used as an offset: 00XX + HL
         LD D,00H
-        LD HL,I$FCC1
+        LD HL,EXPTBL
         ADD HL,DE				; as we can see here.
         LD E,A
         LD A,(HL)
@@ -202,11 +202,11 @@ J$744B:	PUSH DE
         RRCA
         RRCA
         LD C,A
-        LD A,(D.FFFF)
+        LD A,(SSLTRG)
         CPL
         AND 0FCH
         OR C
-        LD (D.FFFF),A
+        LD (SSLTRG),A
         LD A,D
         OUT (0A8H),A
         POP DE
@@ -368,7 +368,7 @@ DSKIO:
 C.752E:
 		JP NC,J$761F
 ;
-        CALL C.FFCF
+        CALL DISINT
         DI
         CALL C.7473			; Enable FDC on page 0
         CALL C$7563
@@ -394,7 +394,7 @@ J$7557:
         CALL C.7437			; Set slotid on page 0
         POP AF
         EI
-        CALL C$FFD4
+        CALL ENAINT
         RET
 ;
 ;	-----------------
@@ -573,7 +573,7 @@ J$761C:
 ;
 ;	-----------------
 J$761F:
-		CALL C.FFCF
+		CALL DISINT
         DI
         CALL C.7473			; Enable FDC on page 0
         CALL C$762C
@@ -1494,7 +1494,7 @@ I$7A84:
         CALL C.7437			; Set slotid on page 0
 ;
         PUSH IX
-        LD A,(D.F342)
+        LD A,(RAMAD1)
         LD H,40H	; "@"
         CALL ENASLT
 ;
@@ -1720,7 +1720,7 @@ J.7B8F:
         PUSH HL
         LD A,(IX+24)		; saved slotid on page 0
         CALL C.7437			; Set slotid on page 0
-        LD A,(D.F342)
+        LD A,(RAMAD1)
         LD H,40H	; "@"
         CALL ENASLT
         POP HL
@@ -1850,7 +1850,7 @@ I$7C3D:
 ;	     Outputs ________________________
 
 DSKFMT:
-        CALL C.FFCF
+        CALL DISINT
         DI
         CALL C.7473			; Enable FDC on page 0
 J$7CA5	EQU $-1				; Equates way down here?!?!
