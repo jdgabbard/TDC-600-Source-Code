@@ -91,9 +91,9 @@ D.2029	EQU	2029H	; --S-I
 D$2030	EQU	2030H	; --S--
 J$4022	EQU	4022H	; J----
 D$4420	EQU	4420H	; --S--
-D.8000	EQU	8000H	; ---LI		;WD37C65 PORT - 
-D.8001	EQU	8001H	; --SL-		;WD37C65 PORT - 
-D.9000	EQU	9000H	; --S--		;WD37C65 PORT - 
+FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
+FDCDAT	EQU	8001H	; --SL-		;WD37C65 PORT - DATA REGISTER
+FDCLDO	EQU	9000H	; --S--		;WD37C65 PORT - Load Operation Register
 D$C059	EQU	0C059H	; ---L-		;POSSIBLY GET DIR ACCORDING TO DISK INTERFACE EMULATOR ON SF
 J$C063	EQU	0C063H	; J----
 J$C06A	EQU	0C06AH	; J----		;POSSIBLY CALL TO WRITE SECTOR? DISK INTERFACE EMULATOR ON SF SUGGESTED...
@@ -1735,18 +1735,18 @@ J.7B8F:
 ;
 ;	-----------------
 ?.7BCB:
-		LD A,(D.8000)
+		LD A,(FDCSTA)				;ANOTHER ROUTINE TO WRITE DATA TO THE FDC
         AND 0D0H
         XOR 80H
         RET Z
 ;
         XOR A
         LD (IX+11),A
-        LD (D.9000),A
+        LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
         CALL C.0160
 ;
         LD A,(IX+12)
-        LD (D.9000),A
+        LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
         RET
 ;
 ;	-----------------
@@ -1778,37 +1778,37 @@ J$7BEE:
         CALL C.0184
 ;
         LD A,0FFH
-        PUSH AF
-J$7C09:
-		LD A,(D.8000)
-        AND 0E0H
+        PUSH AF				;Routine for reading FDC status
+J$7C09:						;Read Status Register
+		LD A,(FDCSTA)
+        AND 0E0H			;Compare if Ready
         CP 80H
-        JR NZ,J$7C09
+        JR NZ,J$7C09		;If not, wait until it is
 ;
-        POP AF
-        LD (D.8001),A
+        POP AF				;When ready, write data and return
+        LD (FDCDAT),A
         RET
 ;
 ;	-----------------
-?.7C17:
+?.7C17:						;Routine for reading data from FDC
 		PUSH IX
 J.7C19:
-		LD A,(D.8000)
-        AND 0C0H
+		LD A,(FDCSTA)		;Read Status Register
+        AND 0C0H			;Compare if data is available
         CP 0C0H
-        JR NZ,J.7C19
+        JR NZ,J.7C19		;If not, wait until it is
 ;
-        LD A,(D.8001)
-        LD (IX+14),A
-        INC IX
-        CALL C.0160
+        LD A,(FDCDAT)		;When ready, write data
+        LD (IX+14),A		;Get something........
+        INC IX				;Increment Pointer
+        CALL C.0160			;And go do what??????
 ;
-        LD A,(D.8000)
-        AND 0C0H
+        LD A,(FDCSTA)		;Now get status again
+        AND 0C0H			;Assuming checking if done
         CP 80H
-        JR NZ,J.7C19
+        JR NZ,J.7C19		;If not done, do it again
 ;
-        POP IX
+        POP IX				;Otherwise, restore and return
         RET
 
 ;	  Subroutine CHOICE
