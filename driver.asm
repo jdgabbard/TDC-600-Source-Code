@@ -2277,7 +2277,7 @@ J$7F13:
 ;------------------------------------------------------
         DEFB 'Boot error',0DH,0AH
 		DEFB 'Press any key for retry',0DH,0AH,00H,00H
-		DEFB 'MSXDOS  SYS",00H
+		DEFB 'MSXDOS  SYS',00H
 ;------------------------------------------------------
 
 ;ROM PADDING
