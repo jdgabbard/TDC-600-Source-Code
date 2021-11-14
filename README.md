@@ -6,3 +6,5 @@ The goal of this project is to recreate a compatible source code for the Talent 
 Portions of this project can be considered a Fork of: https://sourceforge.net/projects/msxsyssrc/
 
 This work was used as a baseline since it is already somewhat documented, and provides a great deal of insight to the way the ROM functions.  And comparison against the original ROM and it's Disassembled code is easy.
+
+The main focus of this project will be, at this time, the driver portion of the ROM.  As this is the portion need to relocate the disk controller into other areas of memory or the IO space.
