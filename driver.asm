@@ -259,103 +259,103 @@ I$749E:
 
 I74B0:
 		LD SP,HL
-        NOP	
-        LD	(BC),A
-        RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        LD	C,00H
-        JP	Z,J$0302
-        RLCA	
-        NOP	
-        JP	M,C.0200
+        NOP
+        LD (BC),A
+        RRCA
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        LD C,00H
+        JP Z,J$0302
+        RLCA
+        NOP
+        JP M,C.0200
 ;
-        RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        LD	A,(BC)
-        NOP	
-        INC	A
-        LD	BC,I.0301
-        NOP	
-        EI	
-        NOP	
-        LD	(BC),A
-        RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        INC	C
-        NOP	
-        LD	A,E
-        LD	(BC),A
-        LD	(BC),A
-        DEC	B
-        NOP	
-        CALL	M,C.0200
+        RRCA
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        LD A,(BC)
+        NOP
+        INC A
+        LD BC,I.0301
+        NOP
+        EI
+        NOP
+        LD (BC),A
+        RRCA
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        INC C
+        NOP
+        LD A,E
+        LD (BC),A
+        LD (BC),A
+        DEC B
+        NOP
+        CALL M,C.0200
 ;
-        RRCA	
-        INC	B
-        NOP	
-        LD	BC,1
-        LD	(BC),A
-        LD	B,B
-        ADD	HL,BC
-        NOP	
-        LD	H,B
-        LD	BC,I.0502
-        NOP	
-        DEFB	0FDH		; << Illegal Op Code Byte >>
+        RRCA
+        INC B
+        NOP
+        LD BC,1
+        LD (BC),A
+        LD B,B
+        ADD HL,BC
+        NOP
+        LD H,B
+        LD BC,I.0502
+        NOP
+        DEFB 0FDH		; << Illegal Op Code Byte >>
 ;	-----------------
 ;
-        NOP	
-        LD	(BC),A
+        NOP
+        LD (BC),A
+        RRCA
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        INC C
+        NOP
+        LD H,E
+        LD BC,I.0502
+        NOP
+        CP 00H
+        LD (BC),A
+        RRCA
+        INC B
+        NOP
+        LD BC,1
+        LD (BC),A
+        LD B,B
+        RLCA
+        NOP
+        LD A,(D$0101)
+        INC BC
+        NOP
+        RST 38H
+        NOP
+        LD (BC),A
         RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        INC	C
-        NOP	
-        LD	H,E
-        LD	BC,I.0502
-        NOP	
-        CP	00H
-        LD	(BC),A
-        RRCA	
-        INC	B
-        NOP	
-        LD	BC,1
-        LD	(BC),A
-        LD	B,B
-        RLCA	
-        NOP	
-        LD	A,(D$0101)
-        INC	BC
-        NOP	
-        RST	38H
-        NOP	
-        LD	(BC),A
-        RRCA	
-        INC	B
-        LD	BC,I.0102
-        NOP	
-        LD	(BC),A
-        LD	(HL),B
-        LD	A,(BC)
-        NOP	
-        INC	A
-        LD	BC,I.0301
-        NOP	
+        INC B
+        LD BC,I.0102
+        NOP
+        LD (BC),A
+        LD (HL),B
+        LD A,(BC)
+        NOP
+        INC A
+        LD BC,I.0301
+        NOP
 
 DEFDPB	EQU	I74B0-1
 
@@ -365,23 +365,26 @@ DEFDPB	EQU	I74B0-1
 ;	     Outputs ________________________
 
 DSKIO:
-C.752E:	JP	NC,J$761F
+C.752E:
+		JP NC,J$761F
 ;
-        CALL	C.FFCF
-        DI	
-        CALL	C.7473			; Enable FDC on page 0
-        CALL	C$7563
-J.753B:	PUSH	AF
-        LD	C,100
-        JR	NC,J$7542
-        LD	C,0
-J$7542:	CALL	C.781E
-        LD	(IX+0),200
-        LD	A,(IX+12)
-        AND	A
-        JR	NZ,J$7554
-        LD	(IX+1),C
-        JR	J$7557
+        CALL C.FFCF
+        DI
+        CALL C.7473			; Enable FDC on page 0
+        CALL C$7563
+J.753B:
+		PUSH AF
+        LD C,100
+        JR NC,J$7542
+        LD C,0
+J$7542:
+		CALL C.781E
+        LD (IX+0),200
+        LD A,(IX+12)
+        AND A
+        JR NZ,J$7554
+        LD (IX+1),C
+        JR J$7557
 ;
 ;	-----------------
 J$7554:	LD	(IX+2),C
