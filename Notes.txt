@@ -29,3 +29,8 @@ The BIO ROM Appears to be based on version disk850902.mac
 	of the MSX Kernel would have been used, or was still current at that time.  Or that v1.02 of
 	the BIOS was released at that time.  Again, mostly speculation at this point.
 	
+
+Variables
+---------------
+
+	SECLEN is the maximum sectors per track supported by the diskdriver.

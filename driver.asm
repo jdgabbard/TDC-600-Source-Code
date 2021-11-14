@@ -38,7 +38,7 @@ D.1000	EQU	1000H	; Operations Register
 ;       EXTRN   MTOFF	=	78F8H
 ;       EXTRN   OEMSTA	=	7F6DH
 ;       EXTRN   MYSIZE	=	25
-;       EXTRN   SECLEN	=	??? UNKNOWN - IS BUFFER???
+;       EXTRN   SECLEN	=	Should be 512 - Size of biggest sector
 ;       EXTRN   DEFDPB	=	74AF - DEFAULT MEDIA F9
 
 ; symbols of routines which can be used by the diskdriver
@@ -110,7 +110,7 @@ ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - AFTER INTERACT W/ DISK
 SSLTRG	EQU	0FFFFH	; --SL-		SECONDARY SLOT REGISTER
 
 MYSIZE	EQU	25
-
+SECLEN	EQU	512
 
 ;---------------------------------------------------
 ;	  Subroutine Get current slotid on page
