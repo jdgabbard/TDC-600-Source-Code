@@ -846,97 +846,51 @@ J.7732:
         LD HL,0
 J$775D:
 		DEC HL
-        LD	A,L
-        OR	H
-        JR	NZ,J$775D
+        LD A,L
+        OR H
+        JR NZ,J$775D
 ;
-        POP	HL
-J$7763:	LD	C,L
-        LD	(IX+7),L
-        LD	A,(IX+5)
-        DEC	A
-        JR	Z,J$777A
+        POP HL
+J$7763:
+		LD C,L
+        LD (IX+7),L
+        LD A,(IX+5)
+        DEC A
+        JR Z,J$777A
 ;
-        LD	A,(IX+3)
-        CP	H
-        JR	Z,J.779B
+        LD A,(IX+3)
+        CP H
+        JR Z,J.779B
 ;
-        XOR	01H	; 1 
-        LD	(IX+3),A
-        JR	J.779B
-;
-;	-----------------
-J$777A:	LD	A,H
-        CP	(IX+4)
-        LD	(IX+4),A
-        JR	Z,J.779B
-;
-        PUSH	IX
-        PUSH	DE
-        PUSH	BC
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
-        CALL	PROMPT
-        POP	BC
-        POP	DE
-        POP	IX
-        DI	
-        LD	A,(IX+23)
-        CALL	C.7437			; Set slotid on page 0
-;
-J.779B:	CALL	C.77E2
-;
-        POP	HL
-        RET	
+        XOR 01H	; 1 
+        LD (IX+3),A
+        JR J.779B
 ;
 ;	-----------------
+J$777A:
+		LD A,H
+        CP (IX+4)
+        LD (IX+4),A
+        JR Z,J.779B
 ;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
+        PUSH IX
+        PUSH DE
+        PUSH BC
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
+        CALL PROMPT
+        POP BC
+        POP DE
+        POP IX
+        DI
+        LD A,(IX+23)
+        CALL C.7437			; Set slotid on page 0
 ;
-C.77A0:	INC	H
-        INC	H
-        LD	A,(IX+9)
-        INC	A
-        LD	(IX+9),A
-        BIT	7,D
-        JR	NZ,J$77B0
+J.779B:
+		CALL C.77E2
 ;
-        CP	0AH	; 10 
-        RET	C
-;
-J$77B0:	CP	09H	; 9 
-        RET	C
-;
-        LD	A,01H	; 1 
-        LD	(IX+9),A
-        BIT	6,D
-        JR	Z,J.77CE
-;
-        BIT	2,D
-        JR	NZ,J.77CE
-;
-        SET	2,D
-        LD	A,D
-        AND	0FH	; 15 
-        LD	(IX+6),A
-        LD	A,01H	; 1 
-        LD	(IX+8),A
-        RET	
-;
-;	-----------------
-J.77CE:	RES	2,D
-        LD	A,D
-        AND	0FH	; 15 
-        LD	(IX+6),A
-        XOR	A
-        LD	(IX+8),A
-        INC	C
-        LD	(IX+7),C
-        CALL	C.77E2
-;
-        RET	
+        POP HL
+        RET
 ;
 ;	-----------------
 ;
@@ -944,37 +898,51 @@ J.77CE:	RES	2,D
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.77E2:	CALL	C.781E
+C.77A0:
+		INC H
+        INC H
+        LD A,(IX+9)
+        INC A
+        LD (IX+9),A
+        BIT 7,D
+        JR NZ,J$77B0
 ;
-        LD	A,(IX+6)
-        AND	01H	; 1 
-        INC	A
-        AND	(IX+11)
-        JR	NZ,J$780A
+        CP 0AH	; 10 
+        RET C
 ;
-        LD	A,(IX+6)
-        AND	01H	; 1 
-        INC	A
-        OR	(IX+11)
-        LD	(IX+11),A
-        LD	A,07H	; 7 
-        CALL	C.785B
+J$77B0:
+		CP 09H	; 9 
+        RET C
 ;
-        LD	A,(IX+6)
-        CALL	C.785B
+        LD A,01H	; 1 
+        LD (IX+9),A
+        BIT 6,D
+        JR Z,J.77CE
 ;
-        CALL	C.788C
+        BIT 2,D
+        JR NZ,J.77CE
 ;
-J$780A:	LD	A,0FH	; 15 
-        CALL	C.785B
+        SET 2,D
+        LD A,D
+        AND 0FH	; 15 
+        LD (IX+6),A
+        LD A,01H	; 1 
+        LD (IX+8),A
+        RET
 ;
-        LD	A,(IX+6)
-        CALL	C.785B
+;	-----------------
+J.77CE:
+		RES 2,D
+        LD A,D
+        AND 0FH	; 15 
+        LD (IX+6),A
+        XOR A
+        LD (IX+8),A
+        INC C
+        LD (IX+7),C
+        CALL C.77E2
 ;
-        LD	A,(IX+7)
-        CALL	C.785B
-;
-        JP	C.788C
+        RET
 ;
 ;	-----------------
 ;
@@ -982,17 +950,39 @@ J$780A:	LD	A,0FH	; 15
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.781E:	LD	A,(X.0000)
-        AND	0D0H			; RQM,DIO,CB
-        XOR	80H
-        RET	Z
-        XOR	A
-        LD	(IX+11),A
-        LD	(D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
-        CALL	C.7837
-        LD	A,(IX+12)
-        LD	(D.1000),A
-        RET	
+C.77E2:
+		CALL C.781E
+;
+        LD A,(IX+6)
+        AND 01H	; 1 
+        INC A
+        AND (IX+11)
+        JR NZ,J$780A
+;
+        LD A,(IX+6)
+        AND 01H	; 1 
+        INC A
+        OR (IX+11)
+        LD (IX+11),A
+        LD A,07H	; 7 
+        CALL C.785B
+;
+        LD A,(IX+6)
+        CALL C.785B
+;
+        CALL C.788C
+;
+J$780A:
+		LD A,0FH	; 15 
+        CALL C.785B
+;
+        LD A,(IX+6)
+        CALL C.785B
+;
+        LD A,(IX+7)
+        CALL C.785B
+;
+        JP C.788C
 ;
 ;	-----------------
 ;
@@ -1000,11 +990,18 @@ C.781E:	LD	A,(X.0000)
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.7837:	EX	(SP),HL
-        EX	(SP),HL
-        EX	(SP),HL
-        EX	(SP),HL
-        RET	
+C.781E:
+		LD	A,(X.0000)
+        AND 0D0H			; RQM,DIO,CB
+        XOR 80H
+        RET Z
+        XOR A
+        LD (IX+11),A
+        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        CALL C.7837
+        LD A,(IX+12)
+        LD (D.1000),A
+        RET
 ;
 ;	-----------------
 ;
@@ -1012,57 +1009,76 @@ C.7837:	EX	(SP),HL
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.783C:	PUSH	BC
-        LD	B,06H	; 6 
-        PUSH	IX
-J$7841:	CALL	C.785B
+C.7837:
+		EX (SP),HL
+        EX (SP),HL
+        EX (SP),HL
+        EX (SP),HL
+        RET
 ;
-        LD	A,(IX+6)
-        INC	IX
-        DJNZ	J$7841
-;
-        POP	IX
-        POP	BC
-        LD	A,(IX+9)
-        CALL	C.785B
-;
-        LD	A,1BH
-        CALL	C.785B
-;
-        LD	A,0FFH
+;	-----------------
 ;
 ;	  Subroutine __________________________
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.785B:	PUSH	AF
-J$785C:	LD	A,(X.0000)
-        AND	0E0H			; RQM,DIO,EXM
-        CP	80H			; DR ready, CPU->FDC, Execution finshed ?
-        JR	NZ,J$785C		; nope, wait
-        POP	AF
-        LD	(D.0001),A
-        RET	
+C.783C:
+		PUSH BC
+        LD B,06H	; 6 
+        PUSH IX
+J$7841:
+		CALL C.785B
+;
+        LD A,(IX+6)
+        INC IX
+        DJNZ J$7841
+;
+        POP IX
+        POP BC
+        LD A,(IX+9)
+        CALL C.785B
+;
+        LD A,1BH
+        CALL C.785B
+;
+        LD A,0FFH
+;
+;	  Subroutine __________________________
+;	     Inputs  ________________________
+;	     Outputs ________________________
+;
+C.785B:
+		PUSH AF
+J$785C:
+		LD A,(X.0000)
+        AND 0E0H			; RQM,DIO,EXM
+        CP 80H			; DR ready, CPU->FDC, Execution finshed ?
+        JR NZ,J$785C		; nope, wait
+        POP AF
+        LD (D.0001),A
+        RET
 
 ;	  Subroutine __________________________
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
-C.786A:	PUSH	IX
-J.786C:	LD	A,(X.0000)
-        AND	0C0H			; RQM, DIO
-        CP	0C0H
-        JR	NZ,J.786C
-        LD	A,(D.0001)
-        LD	(IX+14),A
-        INC	IX
-        CALL	C.7837
-        LD	A,(X.0000)
-        AND	0C0H			; RQM, DIO
-        CP	80H
-        JR	NZ,J.786C
-        POP	IX
-        RET	
+C.786A:
+		PUSH IX
+J.786C:
+		LD A,(X.0000)
+        AND 0C0H			; RQM, DIO
+        CP 0C0H
+        JR NZ,J.786C
+        LD A,(D.0001)
+        LD (IX+14),A
+        INC IX
+        CALL C.7837
+        LD A,(X.0000)
+        AND 0C0H			; RQM, DIO
+        CP 80H
+        JR NZ,J.786C
+        POP IX
+        RET
 ;
 ;	-----------------
 ;
@@ -1070,247 +1086,260 @@ J.786C:	LD	A,(X.0000)
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.788C:	PUSH	BC
-        LD	B,20H	; " "
-J$788F:	LD	A,08H	; 8 
-        CALL	C.785B
+C.788C:
+		PUSH BC
+        LD B,20H	; " "
+J$788F:
+		LD A,08H	; 8 
+        CALL C.785B
 ;
-        CALL	C.786A
+        CALL C.786A
 ;
-        LD	A,(IX+14)
-        AND	0F0H
-        CP	20H	; " "
-        JR	Z,J$78A9
+        LD A,(IX+14)
+        AND 0F0H
+        CP 20H	; " "
+        JR Z,J$78A9
 ;
-        CALL	C.7837
+        CALL C.7837
 ;
-        DEC	BC
-        LD	A,B
-        OR	C
-        JR	NZ,J$788F
+        DEC BC
+        LD A,B
+        OR C
+        JR NZ,J$788F
 ;
-        SCF	
-J$78A9:	POP	BC
-        RET	
+        SCF
+J$78A9:
+		POP BC
+        RET
 
 ;	  Subroutine INIHRD
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 INIHRD:
-        LD	B,0			; page 0
-        CALL	C.7405			; Get current slotid on page
-        PUSH	AF
-        LD	B,1			; page 1
-        CALL	C.7405			; Get current slotid on page
-        CALL	C.7437			; Set slotid on page 0
-        XOR	A
-        LD	(D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
-        CALL	C.7837
-        LD	A,0CH
-        LD	(D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD	A,03H
-        CALL	C.785B
-        LD	A,9FH
-        CALL	C.785B
-        LD	A,03H	; 3 
-        CALL	C.785B
-        LD	A,1CH
-        LD	(D.1000),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
-        LD	A,07H	; 7 
-        CALL	C.785B
-        LD	A,00H
-        CALL	C.785B
-        LD	HL,0
-J$78E6:	CALL	C.7837
-        DEC	HL
-        LD	A,H
-        OR	L
-        JR	NZ,J$78E6
-        LD	A,0CH
-        LD	(D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        POP	AF
-        CALL	C.7437			; Set slotid on page 0
-        RET	
+        LD B,0			; page 0
+        CALL C.7405			; Get current slotid on page
+        PUSH AF
+        LD B,1			; page 1
+        CALL C.7405			; Get current slotid on page
+        CALL C.7437			; Set slotid on page 0
+        XOR A
+        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        CALL C.7837
+        LD A,0CH
+        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD A,03H
+        CALL C.785B
+        LD A,9FH
+        CALL C.785B
+        LD A,03H	; 3 
+        CALL C.785B
+        LD A,1CH
+        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
+        LD A,07H	; 7 
+        CALL C.785B
+        LD A,00H
+        CALL C.785B
+        LD HL,0
+J$78E6:
+		CALL C.7837
+        DEC HL
+        LD A,H
+        OR L
+        JR NZ,J$78E6
+        LD A,0CH
+        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        POP AF
+        CALL C.7437			; Set slotid on page 0
+        RET
 
 ;	  Subroutine MTOFF
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 MTOFF:
-        PUSH	BC
-        PUSH	DE
-        PUSH	HL
-        LD	A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD	(IX+12),A
-        LD	E,A
-        LD	B,1			; page 1
-        CALL	C.7405			; Get current slotid on page
-        LD	HL,D.1000
-        CALL	WRSLT
-        POP	HL
-        POP	DE
-        POP	BC
-        RET	
+        PUSH BC
+        PUSH DE
+        PUSH HL
+        LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (IX+12),A
+        LD E,A
+        LD B,1			; page 1
+        CALL C.7405			; Get current slotid on page
+        LD HL,D.1000
+        CALL WRSLT
+        POP HL
+        POP DE
+        POP BC
+        RET
 
 ;	  Subroutine DRIVES
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 DRIVES:
-        CALL	C.7473			; Enable FDC on page 0
-        PUSH	BC
-        PUSH	AF
-        LD	A,2DH			; PC AT mode, motor 2 on, motor 1 off, dma enabled, select drive 2
-        LD	(D.1000),A
-        CALL	C.788C
-        LD	A,07H	; 7 
-        CALL	C.785B
-        LD	A,01H	; 1 
-        CALL	C.785B
-        CALL	C.788C
-        LD	L,1
-        JR	C,J$7930
-        LD	L,2
-J$7930:	LD	(IX+5),L
-        LD	A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD	(D.1000),A
-        POP	AF
-        JR	Z,J$793D
-        LD	L,2
-J$793D:	PUSH	HL
-        PUSH	AF
-        CALL	GETWRK
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
-        POP	AF
-        POP	HL
-        POP	BC
-        RET	
+        CALL C.7473			; Enable FDC on page 0
+        PUSH BC
+        PUSH AF
+        LD A,2DH			; PC AT mode, motor 2 on, motor 1 off, dma enabled, select drive 2
+        LD (D.1000),A
+        CALL C.788C
+        LD A,07H	; 7 
+        CALL C.785B
+        LD A,01H	; 1 
+        CALL C.785B
+        CALL C.788C
+        LD L,1
+        JR C,J$7930
+        LD L,2
+J$7930:
+		LD (IX+5),L
+        LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (D.1000),A
+        POP AF
+        JR Z,J$793D
+        LD L,2
+J$793D:	
+		PUSH HL
+        PUSH AF
+        CALL GETWRK
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
+        POP AF
+        POP HL
+        POP BC
+        RET
 
 ;	  Subroutine INIENV
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 INIENV:
-        CALL	GETWRK
-        LD	D,(IX+5)
-        XOR	A
-        LD	B,19H
-J$7955:	LD	(HL),A
-        INC	HL
-        DJNZ	J$7955
-        LD	(IX+5),D
-        LD	(IX+10),02H	; 2 
-        LD	HL,I$7966
-        JP	SETINT
+        CALL GETWRK
+        LD D,(IX+5)
+        XOR A
+        LD B,19H
+J$7955:
+		LD (HL),A
+        INC HL
+        DJNZ J$7955
+        LD (IX+5),D
+        LD (IX+10),02H	; 2 
+        LD HL,I$7966
+        JP SETINT
 
-I$7966:	PUSH	AF
-        CALL	GETWRK
-        LD	A,(HL)
-        AND	A
-        JR	Z,J.7986
-        CP	0FFH
-        JR	Z,J.7986
-        DEC	A
-        LD	(HL),A
-        JR	NZ,J.7986
-        LD	A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD	E,A
-        LD	B,1			; page 1
-        CALL	C.7405			; Get current slotid on page
-        PUSH	HL
-        LD	HL,D.1000
-        CALL	WRSLT
-        POP	HL
-J.7986:	INC	HL
-        LD	A,(HL)
-        AND	A
-        JR	Z,J$798C
-        DEC	(HL)
-J$798C:	INC	HL
-        LD	A,(HL)
-        AND	A
-        JR	Z,J$7992
-        DEC	(HL)
-J$7992:	POP	AF
-        JP	PRVINT
+I$7966:
+		PUSH AF
+        CALL GETWRK
+        LD A,(HL)
+        AND A
+        JR Z,J.7986
+        CP 0FFH
+        JR Z,J.7986
+        DEC A
+        LD (HL),A
+        JR NZ,J.7986
+        LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD E,A
+        LD B,1			; page 1
+        CALL C.7405			; Get current slotid on page
+        PUSH HL
+        LD HL,D.1000
+        CALL WRSLT
+        POP HL
+J.7986:
+		INC HL
+        LD A,(HL)
+        AND A
+        JR Z,J$798C
+        DEC (HL)
+J$798C:
+		INC HL
+        LD A,(HL)
+        AND A
+        JR Z,J$7992
+        DEC (HL)
+J$7992:
+		POP AF
+        JP PRVINT
 
 ;	  Subroutine DSKCHG
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 DSKCHG:
-        EI	
-        PUSH	HL
-        PUSH	BC
-        PUSH	AF
-        CALL	GETWRK
-        POP	AF
-        POP	BC
-        POP	HL
-        AND	A
-        LD	B,(IX+2)
-        JR	NZ,J$79A9
-        LD	B,(IX+1)
-J$79A9:	INC	B
-        DEC	B
-        LD	B,01H	; 1 
-        RET	NZ
-        PUSH	BC
-        PUSH	HL
-        LD	DE,1
-        LD	HL,(D.F34D)
-        CALL	C.752E
-        JR	C,J.79D2
-        LD	HL,(D.F34D)
-        LD	B,(HL)
-        POP	HL
-        PUSH	BC
-        CALL	C$79D5
-        LD	A,0CH	; 12 
-        JR	C,J.79D2
-        POP	AF
-        POP	BC
-        CP	C
-        SCF	
-        CCF	
-        LD	B,0FFH
-        RET	NZ
-        INC	B
-        RET	
+        EI
+        PUSH HL
+        PUSH BC
+        PUSH AF
+        CALL GETWRK
+        POP AF
+        POP BC
+        POP HL
+        AND A
+        LD B,(IX+2)
+        JR NZ,J$79A9
+        LD B,(IX+1)
+J$79A9:
+		INC B
+        DEC B
+        LD B,01H	; 1 
+        RET NZ
+        PUSH BC
+        PUSH HL
+        LD DE,1
+        LD HL,(D.F34D)
+        CALL C.752E
+        JR C,J.79D2
+        LD HL,(D.F34D)
+        LD B,(HL)
+        POP HL
+        PUSH BC
+        CALL C$79D5
+        LD A,0CH	; 12 
+        JR C,J.79D2
+        POP AF
+        POP BC
+        CP C
+        SCF
+        CCF
+        LD B,0FFH
+        RET NZ
+        INC B
+        RET
 ;
 ;	-----------------
-J.79D2:	POP	DE
-        POP	DE
-        RET	
+J.79D2:
+		POP DE
+        POP DE
+        RET
 
 ;	  Subroutine GETDPB
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
 GETDPB:
-C$79D5:	EI	
-        EX	DE,HL
-        INC	DE
-        LD	A,B
-        SUB	0F8H
-        RET	C
+C$79D5:	EI 
+        EX DE,HL
+        INC DE
+        LD A,B
+        SUB 0F8H
+        RET C
 ;
-        LD	L,A
-        LD	H,00H
-        ADD	HL,HL
-        LD	C,L
-        LD	B,H
-        ADD	HL,HL
-        ADD	HL,HL
-        ADD	HL,HL
-        ADD	HL,BC
-        LD	BC,I$749E
-        ADD	HL,BC
-        LD	BC,18
-        LDIR	
-        RET	
+        LD L,A
+        LD H,00H
+        ADD HL,HL
+        LD C,L
+        LD B,H
+        ADD HL,HL
+        ADD HL,HL
+        ADD HL,HL
+        ADD HL,BC
+        LD BC,I$749E
+        ADD HL,BC
+        LD BC,18
+        LDIR
+        RET
 ;
 ;	-----------------
 ;
@@ -1318,38 +1347,40 @@ C$79D5:	EI
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.79F0:	PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        LD	HL,I$7A84
-        LD	DE,(D.F34D)
-        LD	BC,I$01B5
-        LDIR	
-        LD	HL,I$7A4E
-J$7A02:	LD	E,(HL)
-        INC	HL
-        LD	D,(HL)
-        INC	HL
-        LD	A,E
-        OR	D
-        JR	Z,J$7A1F
+C.79F0:
+		PUSH HL
+        PUSH DE
+        PUSH BC
+        LD HL,I$7A84
+        LD DE,(D.F34D)
+        LD BC,I$01B5
+        LDIR
+        LD HL,I$7A4E
+J$7A02:
+		LD E,(HL)
+        INC HL
+        LD D,(HL)
+        INC HL
+        LD A,E
+        OR D
+        JR Z,J$7A1F
 ;
-        PUSH	HL
-        LD	HL,(D.F34D)
-        ADD	HL,DE
-        INC	HL
-        LD	C,(HL)
-        INC	HL
-        LD	B,(HL)
-        EX	DE,HL
-        LD	HL,(D.F34D)
-        ADD	HL,BC
-        EX	DE,HL
-        LD	(HL),D
-        DEC	HL
-        LD	(HL),E
-        POP	HL
-        JR	J$7A02
+        PUSH HL
+        LD HL,(D.F34D)
+        ADD HL,DE
+        INC HL
+        LD C,(HL)
+        INC HL
+        LD B,(HL)
+        EX DE,HL
+        LD HL,(D.F34D)
+        ADD HL,BC
+        EX DE,HL
+        LD (HL),D
+        DEC HL
+        LD (HL),E
+        POP HL
+        JR J$7A02
 ;
 ;	-----------------
 J$7A1F:	POP	BC
