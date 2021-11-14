@@ -560,90 +560,24 @@ J$75DE:
         RET
 ;
 ;	-----------------
-J$7618:	LD	A,02H	; 2 
-        SCF	
-        RET	
+J$7618:	
+		LD A,02H	; 2 
+        SCF
+        RET
 ;
 ;	-----------------
-J$761C:	XOR	A
-        SCF	
-        RET	
+J$761C:
+		XOR A
+        SCF
+        RET
 ;
 ;	-----------------
-J$761F:	CALL	C.FFCF
-        DI	
-        CALL	C.7473			; Enable FDC on page 0
-        CALL	C$762C
-        JP	J.753B
-;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
-C$762C:	CALL	C.76E4
-;
-        RET	C
-;
-        LD	A,H
-        AND	A
-        JP	M,J.766F
-;
-        CALL	C.79F0
-;
-        CALL	C$7A23
-;
-        CALL	C.7A48
-;
-        RET	C
-;
-        INC	B
-        DEC	B
-        RET	Z
-;
-        LD	A,H
-        AND	A
-        JP	M,J.766F
-;
-        PUSH	HL
-        LD	HL,(D.F34D)
-        CALL	C.767A
-;
-        POP	HL
-        RET	C
-;
-        PUSH	BC
-        PUSH	DE
-        PUSH	HL
-        LD	A,(IX+24)		; saved slotid on page 0
-        CALL	C.7437			; Set slotid on page 0
-;
-        EX	DE,HL
-        LD	HL,(D.F34D)
-        LD	BC,512
-        CALL	XFER
-;
-        LD	A,(IX+23)
-        CALL	C.7437			; Set slotid on page 0
-;
-        POP	HL
-        POP	DE
-        POP	BC
-        AND	A
-        JR	J$7673
-;
-;	-----------------
-J.766F:	CALL	C.767A
-;
-        RET	C
-;
-J$7673:	DEC	B
-        RET	Z
-;
-        CALL	C.77A0
-;
-        JR	J.766F
+J$761F:
+		CALL C.FFCF
+        DI
+        CALL C.7473			; Enable FDC on page 0
+        CALL C$762C
+        JP J.753B
 ;
 ;	-----------------
 ;
@@ -651,90 +585,71 @@ J$7673:	DEC	B
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.767A:	LD	E,07H	; 7 
-J$767C:	CALL	C.781E
+C$762C:
+		CALL C.76E4
 ;
-        PUSH	HL
-        PUSH	DE
-        PUSH	BC
-        LD	BC,0
-        LD	DE,0
-        LD	A,66H	; "f"
-        CALL	C.783C
+        RET C
 ;
-J.768D:	LD	A,(DE)
-        RLA	
-        JR	C,J.76A1
+        LD A,H
+        AND A
+        JP M,J.766F
 ;
-        DJNZ	J.768D
+        CALL C.79F0
 ;
-        DEC	C
-        LD	A,(DE)
-        RLA	
-        JR	C,J.76A1
+        CALL C$7A23
 ;
-        JR	NZ,J.768D
+        CALL C.7A48
 ;
-        SCF	
-        JR	J$76AF
+        RET C
 ;
-;	-----------------
-J.769D:	LD	A,(DE)
-        RLA	
-        JR	NC,J.769D
+        INC B
+        DEC B
+        RET Z
 ;
-J.76A1:	AND	40H	; "@"
-        JR	Z,J$76AC
+        LD A,H
+        AND A
+        JP M,J.766F
 ;
-        INC	E
-        LD	A,(DE)
-        LD	(HL),A
-        INC	HL
-        DEC	E
-        JR	J.769D
+        PUSH HL
+        LD HL,(D.F34D)
+        CALL C.767A
 ;
-;	-----------------
-J$76AC:	CALL	C.786A
+        POP HL
+        RET C
 ;
-J$76AF:	POP	BC
-        POP	DE
-        POP	HL
-        JP	C,J$76E0
+        PUSH BC
+        PUSH DE
+        PUSH HL
+        LD A,(IX+24)		; saved slotid on page 0
+        CALL C.7437			; Set slotid on page 0
 ;
-        LD	A,(IX+15)
-        AND	7FH
-        RET	Z
+        EX DE,HL
+        LD HL,(D.F34D)
+        LD BC,512
+        CALL XFER
 ;
-        PUSH	AF
-        LD	A,(IX+6)
-        AND	01H	; 1 
-        INC	A
-        CPL	
-        AND	(IX+11)
-        LD	(IX+11),A
-        CALL	C.77E2
+        LD A,(IX+23)
+        CALL C.7437			; Set slotid on page 0
 ;
-        POP	AF
-        DEC	E
-        JP	NZ,J$767C
-;
-        SCF	
-        LD	E,A
-        BIT	2,E
-        LD	A,08H	; 8 
-        RET	NZ
-;
-        BIT	5,E
-        LD	A,04H	; 4 
-        RET	NZ
-;
-        LD	A,0CH	; 12 
-        RET	
+        POP HL
+        POP DE
+        POP BC
+        AND A
+        JR J$7673
 ;
 ;	-----------------
-J$76E0:	LD	A,02H	; 2 
-        SCF	
-        RET	
+J.766F:
+		CALL C.767A
+;
+        RET C
+;
+J$7673:
+		DEC B
+        RET Z
+;
+        CALL C.77A0
+;
+        JR J.766F
 ;
 ;	-----------------
 ;
@@ -742,88 +657,195 @@ J$76E0:	LD	A,02H	; 2
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 ;
-C.76E4:	PUSH	AF
-        PUSH	BC
-        PUSH	HL
-        CALL	GETWRK
+C.767A:
+		LD E,07H	; 7 
+J$767C:
+		CALL C.781E
 ;
-        POP	HL
-        POP	BC
-        POP	AF
-        CP	02H	; 2 
-        JR	C,J$76F5
+        PUSH HL
+        PUSH DE
+        PUSH BC
+        LD BC,0
+        LD DE,0
+        LD A,66H	; "f"
+        CALL C.783C
 ;
-J$76F1:	LD	A,0CH	; 12 
-        SCF	
+J.768D:
+		LD A,(DE)
+        RLA
+        JR C,J.76A1
+;
+        DJNZ J.768D
+;
+        DEC C
+        LD A,(DE)
+        RLA
+        JR C,J.76A1
+;
+        JR NZ,J.768D
+;
+        SCF
+        JR J$76AF
+;
+;	-----------------
+J.769D:
+		LD A,(DE)
+        RLA
+        JR NC,J.769D
+;
+J.76A1:
+		AND 40H	; "@"
+        JR Z,J$76AC
+;
+        INC E
+        LD A,(DE)
+        LD (HL),A
+        INC HL
+        DEC E
+        JR J.769D
+;
+;	-----------------
+J$76AC:
+		CALL C.786A
+;
+J$76AF:
+		POP BC
+        POP DE
+        POP HL
+        JP C,J$76E0
+;
+        LD A,(IX+15)
+        AND 7FH
+        RET Z
+;
+		PUSH AF
+        LD A,(IX+6)
+        AND 01H	; 1 
+        INC A
+        CPL
+        AND (IX+11)
+        LD (IX+11),A
+        CALL C.77E2
+;
+        POP AF
+        DEC E
+        JP NZ,J$767C
+;
+        SCF
+        LD E,A
+        BIT 2,E
+        LD A,08H	; 8 
+        RET NZ
+;
+        BIT 5,E
+        LD A,04H	; 4 
+        RET NZ
+;
+        LD A,0CH	; 12 
         RET	
 ;
 ;	-----------------
-J$76F5:	PUSH	AF
-        LD	A,C
-        CP	0F8H
-        JR	NC,J$76FE
-;
-        POP	AF
-        JR	J$76F1
+J$76E0:
+		LD A,02H	; 2 
+        SCF
+        RET
 ;
 ;	-----------------
-J$76FE:	EX	(SP),HL
-        PUSH	HL
-        PUSH	BC
-        BIT	1,C
-        LD	C,E
-        LD	B,D
-        LD	DE,8
-        JR	NZ,J$770B
-        INC	DE
-J$770B:	CALL	DIV16
-        LD	A,L
-        INC	A
-        LD	(IX+9),A
-        LD	L,C
-        POP	BC
-        POP	AF
-        LD	H,A
-        LD	A,(IX+5)
-        DEC	A
-        JR	Z,J.7723
-        LD	A,H
-        OR	A
-        JR	Z,J.7723
-        LD	A,11H
-J.7723:	ADD	A,1CH
-        PUSH	AF
-        AND	01H	; 1 
-        BIT	0,C
-        JR	Z,J.7732
-        SRL	L
-        JR	NC,J.7732
-        OR	04H	; 4 
-J.7732:	LD	(IX+6),A
-        PUSH	AF
-        SRL	A
-        SRL	A
-        AND	01H	; 1 
-        LD	(IX+8),A
-        POP	AF
-        LD	D,A
-        LD	A,C
-        RRCA	
-        RRCA	
-        AND	0C0H
-        OR	D
-        LD	D,A
-        POP	AF
-        LD	(D.1000),A		; PC AT mode, motor on, dma enabled, select drive
-        LD	(IX+12),A
-        LD	A,(IX)
-        AND	A
-        LD	(IX),0FFH
-        JR	NZ,J$7763
 ;
-        PUSH	HL
-        LD	HL,0
-J$775D:	DEC	HL
+;	  Subroutine __________________________
+;	     Inputs  ________________________
+;	     Outputs ________________________
+;
+C.76E4:
+		PUSH AF
+        PUSH BC
+        PUSH HL
+        CALL GETWRK
+;
+        POP HL
+        POP BC
+        POP AF
+        CP 02H	; 2 
+        JR C,J$76F5
+;
+J$76F1:
+		LD A,0CH	; 12 
+        SCF
+        RET
+;
+;	-----------------
+J$76F5:
+		PUSH AF
+        LD A,C
+        CP 0F8H
+        JR NC,J$76FE
+;
+        POP AF
+        JR J$76F1
+;
+;	-----------------
+J$76FE:
+		EX (SP),HL
+        PUSH HL
+        PUSH BC
+        BIT 1,C
+        LD C,E
+        LD B,D
+        LD DE,8
+        JR NZ,J$770B
+        INC DE
+J$770B:
+		CALL DIV16
+        LD A,L
+        INC A
+        LD (IX+9),A
+        LD L,C
+        POP BC
+        POP AF
+        LD H,A
+        LD A,(IX+5)
+        DEC A
+        JR Z,J.7723
+        LD A,H
+        OR A
+        JR Z,J.7723
+        LD A,11H
+J.7723:
+		ADD A,1CH
+        PUSH AF
+        AND 01H	; 1 
+        BIT 0,C
+        JR Z,J.7732
+        SRL L
+        JR NC,J.7732
+        OR 04H	; 4 
+J.7732:
+		LD (IX+6),A
+        PUSH AF
+        SRL A
+        SRL A
+        AND 01H	; 1 
+        LD (IX+8),A
+        POP AF
+        LD D,A
+        LD A,C
+        RRCA
+        RRCA
+        AND 0C0H
+        OR D
+        LD D,A
+        POP AF
+        LD (D.1000),A		; PC AT mode, motor on, dma enabled, select drive
+        LD (IX+12),A
+        LD A,(IX)
+        AND A
+        LD (IX),0FFH
+        JR NZ,J$7763
+;
+        PUSH HL
+        LD HL,0
+J$775D:
+		DEC HL
         LD	A,L
         OR	H
         JR	NZ,J$775D
