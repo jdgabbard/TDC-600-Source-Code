@@ -4,33 +4,12 @@
 ;
 ; Documentation work by Doug Gabbard, RetroDepot.net
 ; Original disassembly taken from: https://sourceforge.net/p/msxsyssrc/git/ci/master/tree/
-;
-
 
 ; Main Status Register A0=0+RD
 ; DATA A0=1+RD
 ; DATA A0=1+WR
 ; Operations Register LDOR+WR
 ; Control Register LDCR+WR
-
-X.0000	EQU	0000H	; Main Status Register
-D.0001	EQU	0001H	; Data Register
-D.1000	EQU	1000H	; Operations Register
-
-; -LDCR looks like it is connected to local high, so no way to change Control Register
-; -CS combi of SLOTSEL,A14=0,A13=0,A12=0
-; A0 = A0
-; -LDOR combi of SLOTSEL,A14=0,A13=0,A12=1
-; combination of SLOTSEL,A14=0,A13=1,A12=0 could be used for future expansion
-; combination of SLOTSEL,A14=0,A13=1,A12=1 could be used for future expansion
-
-;  
-;   TDC600 -> Source re-created by Z80DIS 2.2
-;      Z80DIS was written by Kenneth Gielow
-;                            Palo Alto, CA
-;
-
-; symbols which must be defined by the diskdriver
 
 ;       EXTRN   INIHRD	=	78ABH
 ;       EXTRN   DRIVES	=	7910H
@@ -57,49 +36,44 @@ D.1000	EQU	1000H	; Operations Register
 ;       PUBLIC  ENASLT
 ;       PUBLIC  XFER
 
+        
 
-
-        .Z80
-        ORG	7405H
 ;
-I$0007	EQU	0007H	; ----I
-WRSLT	EQU	0014H	; -C---
-ENASLT	EQU	0024H	; -C---
+
+
 J$00A7	EQU	00A7H	; J----
 J$00AF	EQU	00AFH	; J----
-I$00DB	EQU	00DBH	; ----I
 C$00DD	EQU	00DDH	; -C---
 J.0100	EQU	0100H	; J---I
 D$0101	EQU	0101H	; ---L-
-I.0102	EQU	0102H	; ----I
 C.011F	EQU	011FH	; -C---
 C$0147	EQU	0147H	; -C---
-I$0156	EQU	0156H	; ----I
 C.0160	EQU	0160H	; -C---
 C$0165	EQU	0165H	; -C---
-I$017A	EQU	017AH	; ----I
 C.0184	EQU	0184H	; -C---
 C$0193	EQU	0193H	; -C---
-I$01A6	EQU	01A6H	; ----I
-I$01B5	EQU	01B5H	; ----I
 C.0200	EQU	0200H	; JC--I
-I.0301	EQU	0301H	; ----I
 J$0302	EQU	0302H	; J----
-I.0502	EQU	0502H	; ----I
 D.2020	EQU	2020H	; --S--
 D.2029	EQU	2029H	; --S-I
 D$2030	EQU	2030H	; --S--
 J$4022	EQU	4022H	; J----
 D$4420	EQU	4420H	; --S--
+
 FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
 FDCDAT	EQU	8001H	; --SL-		;WD37C65 PORT - DATA REGISTER
-FDCLDO	EQU	9000H	; --S--		;WD37C65 PORT - Load Operation Register
+FDCLDO	EQU	9000H	; --S--		;WD37C65 PORT - LOAD OPERATION REGISTER
+FDCSTAL	EQU	0000H				;WD37C65 PORT - STATUS REGISTER MIRROR
+FDCDATL	EQU	0001H				;WD37C65 PORT - DATA REGISTER MIRROR
+FDCLDOL	EQU	1000H				;WD37C65 PORT - LOAD OPERATION REGISTER MIRROR
+
+WRSLT	EQU	0014H	; -C---
+ENASLT	EQU	0024H	; -C---
+
 D$C059	EQU	0C059H	; ---L-		;POSSIBLY GET DIR ACCORDING TO DISK INTERFACE EMULATOR ON SF
 J$C063	EQU	0C063H	; J----
 J$C06A	EQU	0C06AH	; J----		;POSSIBLY CALL TO WRITE SECTOR? DISK INTERFACE EMULATOR ON SF SUGGESTED...
 C$C081	EQU	0C081H	; -C---
-I$C08F	EQU	0C08FH	; ----I
-I.C0B5	EQU	0C0B5H	; ----I
 D$C0C3	EQU	0C0C3H	; --S--
 D.C0DA	EQU	0C0DAH	; --SL-
 C$F2F6	EQU	0F2F6H	; -C---
@@ -107,15 +81,19 @@ RAMAD1	EQU	0F342H	; ---L-		;SLOT ADDR OF RAM IN PAGE 1
 SECBUF	EQU	0F34DH	; --SL-		;TEMPORARY STORAGE FOR FAT SECTOR POINTER
 SETROM	EQU	0F368H	; -C---		;SWITCH DISK-ROM TO PAGE 1
 ROMBDOS	EQU	0F37DH	; -C---		;INTER-SLOT CALL TO BDOS ROUTINES
-I$F51F	EQU	0F51FH	; ----I
 C$F8FD	EQU	0F8FDH	; -C---
 EXPTBL	EQU	0FCC1H	; ----I
 DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - DISABLING INTERRUPTS - BEFORE INTERACT W/ DISK
 ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - ENABLING INTERRUPTS - AFTER INTERACT W/ DISK
 SSLTRG	EQU	0FFFFH	; --SL-		SECONDARY SLOT REGISTER
 
+DEFDPB	EQU	DSK7203-1
+
 MYSIZE	EQU	25
 SECLEN	EQU	512
+
+
+		        ORG	7405H
 
 ;---------------------------------------------------
 ;	  Subroutine Get current slotid on page
@@ -247,123 +225,127 @@ ENAFDC:
         POP AF
         RET
 
-I$749E:						;BLOCK DATA?
-		RET M
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD H,E
-        LD BC,I.0502
-        NOP					;DEFDPB ACCORDING TO EQUATE
+;---------------------------------------------------
+;
+;		DISK PARAMETERS IN BLOCK DATA
+;
+;---------------------------------------------------
 
-I74B0:						;BLOCK DATA
-		LD SP,HL
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD C,00H
-        JP Z,J$0302
-        RLCA
-        NOP
-        JP M,C.0200
-;
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD A,(BC)
-        NOP
-        INC A
-        LD BC,I.0301
-        NOP
-        EI
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD A,E
-        LD (BC),A
-        LD (BC),A
-        DEC B
-        NOP
-        CALL M,C.0200
-;
-        RRCA
-        INC B
-        NOP
-        LD BC,1
-        LD (BC),A
-        LD B,B
-        ADD HL,BC
-        NOP
-        LD H,B
-        LD BC,I.0502
-        NOP
-        DEFB 0FDH		; << Illegal Op Code Byte >>
-;	-----------------
-;
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD H,E
-        LD BC,I.0502
-        NOP
-        CP 00H
-        LD (BC),A
-        RRCA
-        INC B
-        NOP
-        LD BC,1
-        LD (BC),A
-        LD B,B
-        RLCA
-        NOP
-        LD A,(D$0101)
-        INC BC
-        NOP
-        RST 38H
-        NOP
-        LD (BC),A
-        RRCA	
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD A,(BC)
-        NOP
-        INC A
-        LD BC,I.0301
-        NOP
+DSKPMT:						;DISK PARAMETERS
+DSK3603:					;BLOCK DATA?
+							;Confirmed by Arjen
+        DEFB	0F8H		;F8 MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	01H			;3.5 360KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	355
+        DEFB	2
+        DEFW	5
 
-DEFDPB	EQU	I74B0-1
+DSK7203:						;BLOCK DATA
+		DEFB	0F9H		;F9 MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;3.5 720KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	14
+        DEFW	714
+        DEFB	3
+        DEFW	7
+DSK3203:		
+		DEFB	0FAH		;FA MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	01H			;3.5 320KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	10
+        DEFW	316
+        DEFB	1
+        DEFW	3
+DSK6403:
+        DEFB	0FBH		;FB MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;3.5 640KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	635
+        DEFB	2
+        DEFW	5
+DSK1805:
+        DEFB	0FCH		;FC MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	00H			;5.25 180KB
+        DEFB	01H
+        DEFW	1
+        DEFB	2
+        DEFB	64
+        DEFW	9
+        DEFW	352
+        DEFB	2
+        DEFW	5
+DSK3605:
+        DEFB	0FDH		;FD MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;5.25 360KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	355
+        DEFB	2
+        DEFW	5
+DSK1605:
+        DEFB	0FEH		;FE MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	00H			;5.25 160KB
+        DEFB	01H
+        DEFW	1
+        DEFB	2
+        DEFB	64
+        DEFW	7
+        DEFW	314
+        DEFB	1
+        DEFW	3
+DSK3205:
+        DEFB	0FFH		;FF MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;5.25 320KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	10
+        DEFW	316
+        DEFB	1
+        DEFW	3
 
 
 ;	  Subroutine DSKIO
@@ -840,7 +822,7 @@ J.7732:
         OR D
         LD D,A
         POP AF
-        LD (D.1000),A		; PC AT mode, motor on, dma enabled, select drive
+        LD (FDCLDOL),A		; PC AT mode, motor on, dma enabled, select drive
         LD (IX+12),A
         LD A,(IX)
         AND A
@@ -996,16 +978,16 @@ J$780A:
 ;	     Outputs ________________________
 ;
 C.781E:
-		LD	A,(X.0000)
+		LD	A,(FDCSTAL)
         AND 0D0H			; RQM,DIO,CB
         XOR 80H
         RET Z
         XOR A
         LD (IX+11),A
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
         LD A,(IX+12)
-        LD (D.1000),A
+        LD (FDCLDOL),A
         RET
 ;
 ;	-----------------
@@ -1055,12 +1037,12 @@ J$7841:
 C.785B:
 		PUSH AF
 J$785C:
-		LD A,(X.0000)
+		LD A,(FDCSTAL)
         AND 0E0H			; RQM,DIO,EXM
         CP 80H			; DR ready, CPU->FDC, Execution finshed ?
         JR NZ,J$785C		; nope, wait
         POP AF
-        LD (D.0001),A
+        LD (FDCDATL),A
         RET
 
 ;	  Subroutine __________________________
@@ -1070,15 +1052,15 @@ J$785C:
 C.786A:
 		PUSH IX
 J.786C:
-		LD A,(X.0000)
+		LD A,(FDCSTAL)
         AND 0C0H			; RQM, DIO
         CP 0C0H
         JR NZ,J.786C
-        LD A,(D.0001)
+        LD A,(FDCDATL)
         LD (IX+14),A
         INC IX
         CALL C.7837
-        LD A,(X.0000)
+        LD A,(FDCSTAL)
         AND 0C0H			; RQM, DIO
         CP 80H
         JR NZ,J.786C
@@ -1129,10 +1111,10 @@ INIHRD:
         CALL GTCSLT			; Get current slotid on page
         CALL SSLTID			; Set slotid on page 0
         XOR A
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
         LD A,0CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD A,03H
         CALL C.785B
         LD A,9FH
@@ -1140,7 +1122,7 @@ INIHRD:
         LD A,03H	; 3 
         CALL C.785B
         LD A,1CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
         LD A,07H	; 7 
         CALL C.785B
         LD A,00H
@@ -1153,7 +1135,7 @@ INIHRD2:
         OR L
         JR NZ,INIHRD2
         LD A,0CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         POP AF
         CALL SSLTID			; Set slotid on page 0
         RET
@@ -1171,7 +1153,7 @@ MTOFF:
         LD E,A
         LD B,1			; page 1
         CALL GTCSLT			; Get current slotid on page
-        LD HL,D.1000
+        LD HL,FDCLDOL
         CALL WRSLT
         POP HL
         POP DE
@@ -1187,7 +1169,7 @@ DRIVES:
         PUSH BC
         PUSH AF
         LD A,2DH			; PC AT mode, motor 2 on, motor 1 off, dma enabled, select drive 2
-        LD (D.1000),A
+        LD (FDCLDOL),A
         CALL C.788C
         LD A,07H	; 7 
         CALL C.785B
@@ -1200,7 +1182,7 @@ DRIVES:
 DRIVES2:
 		LD (IX+5),L
         LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD (D.1000),A
+        LD (FDCLDOL),A
         POP AF
         JR Z,DRIVES3
         LD L,2
@@ -1249,7 +1231,7 @@ I$7966:						;Disk drive interrupt handler?
         LD B,1			; page 1
         CALL GTCSLT			; Get current slotid on page
         PUSH HL
-        LD HL,D.1000
+        LD HL,FDCLDOL
         CALL WRSLT
         POP HL
 J.7986:
@@ -1340,7 +1322,7 @@ GETDPB:	EI
         ADD HL,HL
         ADD HL,HL
         ADD HL,BC
-        LD BC,I$749E
+        LD BC,DSKPMT
         ADD HL,BC
         LD BC,18
         LDIR
@@ -1358,7 +1340,7 @@ C.79F0:
         PUSH BC
         LD HL,I$7A84
         LD DE,(SECBUF)
-        LD BC,I$01B5
+        LD BC,01B5H
         LDIR
         LD HL,I$7A4E
 J$7A02:
@@ -1466,11 +1448,11 @@ I$7A4E:
         ADC A,B
         NOP
         DEC DE
-        LD BC,I$0156
+        LD BC,0156H
         LD L,D
-        LD BC,I$017A
+        LD BC,017AH
         LD A,A
-        LD BC,I$01A6
+        LD BC,01A6H
         DEFB 0,0
 I$7A6A:	
 		LD A,(D$3E00)
@@ -1900,7 +1882,7 @@ J.7CD1:
 		PUSH DE
         PUSH IX
         POP HL
-        LD BC,I$0007
+        LD BC,0007H
         ADD HL,BC
         PUSH HL
 J$7CDA:
@@ -2055,7 +2037,7 @@ J$7D91:
         LDIR
         LD HL,I$7E92
         POP DE
-        LD BC,I$00DB
+        LD BC,00DBH
         LDIR
         LD A,(IX+13)
         LD IY,(SECBUF)
@@ -2213,8 +2195,8 @@ I$7E92:
         INC HL
         LD (HL),0C0H
 J$7EBD:
-		LD SP,I$F51F
-        LD DE,I.C0B5
+		LD SP,F51FH
+        LD DE,C0B5H
         LD C,0FH				;BDOS CALL TO OPEN FILE (FCB)
         CALL ROMBDOS
         INC A
@@ -2225,7 +2207,7 @@ J$7EBD:
         LD HL,1
         LD (D$C0C3),HL
         LD HL,04000H-0100H
-        LD DE,I.C0B5
+        LD DE,C0B5H
         LD C,27H				;BDOS CALL TO RANDOM BLOCK READ (FCB)
         CALL ROMBDOS
         JP J.0100
@@ -2244,7 +2226,7 @@ J$7EBD:
         AND A
         JP Z,J$4022
 ;
-        LD DE,I$C08F
+        LD DE,C08FH
         CALL C$C081
 ;
         LD C,07H				;BDOS CALL TO DIRECT CONSOLD INPUT
