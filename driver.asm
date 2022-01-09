@@ -337,24 +337,48 @@ DSK3205:
         DEFB	1
         DEFW	3
 
-;---------------------------------------------------
-;	  Subroutine DSKIO
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;---------------------------------------------------
+;---------------------------------------------------------------------------------
+; DSKIO
+;
+; Input:	F - Carry Flag reset for read, set for write.
+;			A - Drive number (starts at 0)
+;			B - Number of sectors to read/write.
+;			C - Media descriptor
+;			DE - Logical sector number (starts at 0)
+;			HL - Transfer Address
+; Outputs:	If successful, carry flag cleared. Otherwise carry flag set, error code
+;			placed in 'A', number of remaining sectors in 'B'.
+; Registers: AF,BC,DE,HL,IX,IY may be affected.
+;
+; The drive number and media descriptor come from the drive parameter block.  The
+; number of sectors may range from 1 to 255. The logical sector numbers start at zero
+; and is incremented in ones, so the I/O system must map these the logical sector
+; numbers into tracks and sectors.  The logical sector 0 corresponds to track 0,
+; sector 1.
+;
+; The error codes are defined as follows:
+;
+;		0	Write Protected
+;		2	Not Ready
+;		4	Data (CRC) error
+;		8	Record not found
+;		10	Write fault
+;		12	Other errors
+;---------------------------------------------------------------------------------
 
 DSKIO:
-		JP NC,J$761F
-;
+		JP NC,DSKIO_READ	;If no Carry, We're Reading from Disk
+							;Returns to DSKIO2
+							
         CALL DISINT			;Disable Interrupts before Disk Access
         DI
         CALL ENAFDC			; Enable FDC on page 0
         CALL C$7563			;Only used by DSKIO - What does it do????
 DSKIO2:						;Was J.753B
 		PUSH AF
-        LD C,100
+        LD C,100			;If Carry, we're Writing to Disk
         JR NC,DSKIO3
-        LD C,0
+        LD C,0				;If No Carry, we're Reading to Disk
 DSKIO3:
 		CALL C.781E
         LD (IX+0),200
@@ -550,11 +574,11 @@ J$761C:
         RET
 ;
 ;	-----------------
-J$761F:
+DSKIO_READ:					;Was J$761F
 		CALL DISINT			;Disable Interrupts before Disk Access
         DI					;But we Disabled them again???
         CALL ENAFDC			;Enable FDC on Page 0
-        CALL C$762C
+        CALL C$762C			;Alternate to C$7563
         JP DSKIO2			;Jump to DSKIO2
 ;
 ;	-----------------
@@ -738,7 +762,7 @@ C.76E4:
 		PUSH AF
         PUSH BC
         PUSH HL
-        CALL GETWRK
+        CALL GETWRK				;Gets Work Area in IX
 ;
         POP HL
         POP BC
