@@ -69,13 +69,14 @@ SECLEN	EQU	512
 ;---------------------------------------------------
 ;	  Subroutine Get current slotid on page
 ;	     Inputs  B = page
-;	     Outputs ________________________
+;	     Outputs Slot ID in 'A'
+;	     Registers: AF,HL affected
 ;---------------------------------------------------
 
 GTCSLT:
 		PUSH BC					;Save the values
         PUSH DE
-        LD A,B					;Get input for Page 0?
+        LD A,B					;Get input for Page. B=Page (0,1,2,3)
         OR A					;If 0, set Z-flag
         IN A,(0A8H)				;Read Primary Slot Register into 'A'
         JR Z,GTCSLT3			;If Page 0 is Slot 0, skip ahead
@@ -87,40 +88,42 @@ GTCSLT2:
         POP BC					;Once Zero, A is calculated, get back 'B'
 
 GTCSLT3:
-		AND 03H					; primary slot - probably bit mask ?
-        LD E,A					; used as an offset: 00XX + HL
+		AND 03H					;Primary Slot Bitmask for 'Page 0'
+        LD E,A					;Used as an offset: 00XX + HL
         LD D,00H
-        LD HL,EXPTBL
-        ADD HL,DE				; as we can see here.
-        LD E,A
-        LD A,(HL)
-        AND 80H
-        OR E
-        LD E,A
+        LD HL,EXPTBL			;Load HL with Expanded Slot Table
+        ADD HL,DE				;Now we have the offset memory location
+        LD E,A					;Store that offset.
+        LD A,(HL)				;Get the Expanded Slot Table Page Value
+        AND 80H					;Test if is expanded
+        OR E					;Now combine
+        LD E,A					;And store - Now we have Primary Slot ID???
+        INC HL					;Now get Secondary Slot Register for Page
         INC HL
         INC HL
         INC HL
-        INC HL
-        LD A,B
-        OR A			; page 0 ?
-        LD A,(HL)
+        LD A,B					;Get inpute for Page. B=Page (0,1,2,3)
+        OR A					;If 0, set Z-Flag
+        LD A,(HL)				;Get Secondary Slot Register Value
+        RLCA					;Rotate Page 3 into Page 0 position
         RLCA	
-        RLCA	
-        JR Z,GTCSLT5
+        JR Z,GTCSLT5			;But if Page 0, Jump Ahead
 GTCSLT4:
-		RRCA	
-        RRCA	
+		RRCA					;If not Page 0, Rotate Page 3 back to Page 3
+        RRCA					;Decrement Page Input until 0, then go on.	
         DJNZ GTCSLT4
 GTCSLT5:
-		AND 0CH
-        OR E
-        POP DE
+		AND 0CH					;Logical And for Page 1
+        OR E					;Combine with Primary Slot ID
+        POP DE					;Restore and Return with Slot ID in 'A'
         POP BC
         RET
 
+;---------------------------------------------------
 ;	  Subroutine Set slotid on page 0
 ;	     Inputs  B = slotid
 ;	     Outputs ________________________
+;---------------------------------------------------
 
 SSLTID:
 		DI
