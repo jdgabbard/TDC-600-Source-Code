@@ -9,7 +9,7 @@
 ; DATA A0=1+RD
 ; DATA A0=1+WR
 ; Operations Register LDOR+WR
-; Control Register LDCR+WR
+; Control Register Mapped: High
 
 ;       EXTRN   INIHRD	=	78ABH
 ;       EXTRN   DRIVES	=	7910H
@@ -39,27 +39,6 @@
         
 
 ;
-
-
-J$00A7	EQU	00A7H	; J----
-J$00AF	EQU	00AFH	; J----
-C$00DD	EQU	00DDH	; -C---
-J.0100	EQU	0100H	; J---I
-D$0101	EQU	0101H	; ---L-
-C.011F	EQU	011FH	; -C---
-C$0147	EQU	0147H	; -C---
-C.0160	EQU	0160H	; -C---
-C$0165	EQU	0165H	; -C---
-C.0184	EQU	0184H	; -C---
-C$0193	EQU	0193H	; -C---
-C.0200	EQU	0200H	; JC--I
-J$0302	EQU	0302H	; J----
-D.2020	EQU	2020H	; --S--
-D.2029	EQU	2029H	; --S-I
-D$2030	EQU	2030H	; --S--
-J$4022	EQU	4022H	; J----
-D$4420	EQU	4420H	; --S--
-
 FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
 FDCDAT	EQU	8001H	; --SL-		;WD37C65 PORT - DATA REGISTER
 FDCLDO	EQU	9000H	; --S--		;WD37C65 PORT - LOAD OPERATION REGISTER
@@ -70,18 +49,10 @@ FDCLDOL	EQU	1000H				;WD37C65 PORT - LOAD OPERATION REGISTER MIRROR
 WRSLT	EQU	0014H	; -C---
 ENASLT	EQU	0024H	; -C---
 
-D$C059	EQU	0C059H	; ---L-		;POSSIBLY GET DIR ACCORDING TO DISK INTERFACE EMULATOR ON SF
-J$C063	EQU	0C063H	; J----
-J$C06A	EQU	0C06AH	; J----		;POSSIBLY CALL TO WRITE SECTOR? DISK INTERFACE EMULATOR ON SF SUGGESTED...
-C$C081	EQU	0C081H	; -C---
-D$C0C3	EQU	0C0C3H	; --S--
-D.C0DA	EQU	0C0DAH	; --SL-
-C$F2F6	EQU	0F2F6H	; -C---
 RAMAD1	EQU	0F342H	; ---L-		;SLOT ADDR OF RAM IN PAGE 1
 SECBUF	EQU	0F34DH	; --SL-		;TEMPORARY STORAGE FOR FAT SECTOR POINTER
 SETROM	EQU	0F368H	; -C---		;SWITCH DISK-ROM TO PAGE 1
 ROMBDOS	EQU	0F37DH	; -C---		;INTER-SLOT CALL TO BDOS ROUTINES
-C$F8FD	EQU	0F8FDH	; -C---
 EXPTBL	EQU	0FCC1H	; ----I
 DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - DISABLING INTERRUPTS - BEFORE INTERACT W/ DISK
 ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - ENABLING INTERRUPTS - AFTER INTERACT W/ DISK
@@ -1499,11 +1470,11 @@ J$7AA8:
         LD A,H
         ADD A,02H	; 2 
         INC HL
-        JP M,J$00AF
+        JP M,00AFH
 ;
         LD E,07H	; 7 
 J$7AB2:
-		CALL C$0147			;CALL FORMAT from MSX-BIOS ?
+		CALL 0147H			;CALL FORMAT from MSX-BIOS ?
 ;
         PUSH HL
         PUSH DE
@@ -1511,7 +1482,7 @@ J$7AB2:
         LD BC,0
         LD DE,D.8000
         LD A,45H	; "E"
-        CALL C$0165			;CHKNEW from MSX-BIOS ?
+        CALL 0165H			;CHKNEW from MSX-BIOS ?
 ;
 J.7AC3:
 		LD A,(DE)
@@ -1549,13 +1520,13 @@ J.7AD7:
 ;
 ;	-----------------
 J$7AE2:
-		CALL C$0193			;Call to bios - where?
+		CALL 0193H			;Call to bios - where?
 ;
 J$7AE5:
 		POP BC
         POP DE
         POP HL
-        JP C,J$00A7
+        JP C,00A7H
 ;
         LD A,(IX+15)
         AND 7FH
@@ -1564,7 +1535,7 @@ J$7AE5:
         DEC B
         JR Z,J$7B33
 ;
-        CALL C$00DD			;Cant be call to bios, this is middle of paddle routine
+        CALL 00DDH			;Cant be call to bios, this is middle of paddle routine
 ;
         JR J$7AA8
 ;
@@ -1580,7 +1551,7 @@ J$7AFA:
         CPL
         AND (IX+11)
         LD (IX+11),A
-        CALL C.011F
+        CALL 011FH
 ;
         POP AF
         DEC E
@@ -1688,7 +1659,7 @@ J.7B8F:
         LD (IX+8),A
         INC C
         LD (IX+7),C
-        CALL C.011F
+        CALL 011FH
 ;
         RET
 ;
@@ -1725,7 +1696,7 @@ J.7B8F:
         XOR A
         LD (IX+11),A
         LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
-        CALL C.0160
+        CALL 0160H
 ;
         LD A,(IX+12)
         LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
@@ -1745,7 +1716,7 @@ J.7B8F:
         LD B,06H	; 6 
         PUSH IX
 J$7BEE:
-		CALL C.0184
+		CALL 0184H
 ;
         LD A,(IX+6)
         INC IX
@@ -1754,10 +1725,10 @@ J$7BEE:
         POP IX
         POP BC
         LD A,(IX+9)
-        CALL C.0184
+        CALL 0184H
 ;
         LD A,1BH
-        CALL C.0184
+        CALL 0184H
 ;
         LD A,0FFH
         PUSH AF				;Routine for reading FDC status
@@ -1783,7 +1754,7 @@ J.7C19:
         LD A,(FDCDAT)		;When ready, write data
         LD (IX+14),A		;Get something........
         INC IX				;Increment Pointer
-        CALL C.0160			;And go do what??????
+        CALL 0160H			;And go do what??????
 ;
         LD A,(FDCSTA)		;Now get status again
         AND 0C0H			;Assuming checking if done
@@ -2033,7 +2004,7 @@ J$7D91:
         POP DE
         INC DE
         LD (HL),00H
-        LD BC,C.0200
+        LD BC,0200H
         LDIR
         LD HL,I$7E92
         POP DE
@@ -2170,7 +2141,7 @@ I$7E92:
 ;-----------------------
         LD (BC),A
         LD (BC),A
-        LD BC,C.0200
+        LD BC,0200H
         LD (HL),B
         NOP
         RET NC
@@ -2189,8 +2160,8 @@ I$7E92:
 
         RET NC
 ;
-        LD (D$C059),DE
-        LD (D.C0DA),A
+        LD (0C059H),DE
+        LD (0C0DAH),A
         LD (HL),56H	; "V"
         INC HL
         LD (HL),0C0H
@@ -2200,17 +2171,17 @@ J$7EBD:
         LD C,0FH				;BDOS CALL TO OPEN FILE (FCB)
         CALL ROMBDOS
         INC A
-        JP Z,J$C063
-        LD DE,J.0100
+        JP Z,0C063H
+        LD DE,0100H
         LD C,1AH				;BDOS CALL TO SET DISK TRANSFER ADDRESS
         CALL ROMBDOS
         LD HL,1
-        LD (D$C0C3),HL
+        LD (0C0C3H),HL
         LD HL,04000H-0100H
         LD DE,C0B5H
         LD C,27H				;BDOS CALL TO RANDOM BLOCK READ (FCB)
         CALL ROMBDOS
-        JP J.0100
+        JP 0100H
 ;
 ;	-----------------
 ?.7EE8:
@@ -2222,12 +2193,12 @@ J$7EBD:
         CP 02H	; 2 
         JP NZ,J$C06A
 ;
-        LD A,(D.C0DA)
+        LD A,(0C0DAH)
         AND A
-        JP Z,J$4022
+        JP Z,4022H
 ;
         LD DE,C08FH
-        CALL C$C081
+        CALL 0C081H
 ;
         LD C,07H				;BDOS CALL TO DIRECT CONSOLD INPUT
         CALL ROMBDOS
@@ -2238,9 +2209,9 @@ J$7EBD:
 ?.7F09:
 		CP C
         RES 6,A
-        CALL C$F2F6
+        CALL 0F2F6H
 ;
-        CALL PE,C$F8FD
+        CALL PE,0F8FDH
 ;
         CP C
 J$7F13:

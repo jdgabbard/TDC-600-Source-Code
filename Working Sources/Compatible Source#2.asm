@@ -8707,31 +8707,15 @@ DSKDRV:
 ; Diskdriver Talent TDC600
 ;
 ; FDC	WD37C65
+;
+; Documentation work by Doug Gabbard, RetroDepot.net
+; Original disassembly taken from: https://sourceforge.net/p/msxsyssrc/git/ci/master/tree/
 
 ; Main Status Register A0=0+RD
 ; DATA A0=1+RD
 ; DATA A0=1+WR
 ; Operations Register LDOR+WR
-; Control Register LDCR+WR
-
-X.0000	EQU	0000H	; Main Status Register
-D.0001	EQU	0001H	; Data Register
-D.1000	EQU	1000H	; Operations Register
-
-; -LDCR looks like it is connected to local high, so no way to change Control Register
-; -CS combi of SLOTSEL,A14=0,A13=0,A12=0
-; A0 = A0
-; -LDOR combi of SLOTSEL,A14=0,A13=0,A12=1
-; combination of SLOTSEL,A14=0,A13=1,A12=0 could be used for future expansion
-; combination of SLOTSEL,A14=0,A13=1,A12=1 could be used for future expansion
-
-;
-;   TDC600 -> Source re-created by Z80DIS 2.2
-;      Z80DIS was written by Kenneth Gielow
-;                            Palo Alto, CA
-;
-
-; symbols which must be defined by the diskdriver
+; Control Register Mapped: High
 
 ;       EXTRN   INIHRD	=	78ABH
 ;       EXTRN   DRIVES	=	7910H
@@ -8758,65 +8742,64 @@ D.1000	EQU	1000H	; Operations Register
 ;       PUBLIC  ENASLT
 ;       PUBLIC  XFER
 
+        
 
-
-        Z80
-        ORG	7405H
 ;
-I$0007	EQU	0007H	; ----I
-;WRSLT	EQU	0014H	; -C---
-;ENASLT	EQU	0024H	; -C---
+
+
 J$00A7	EQU	00A7H	; J----
 J$00AF	EQU	00AFH	; J----
-I$00DB	EQU	00DBH	; ----I
 C$00DD	EQU	00DDH	; -C---
 J.0100	EQU	0100H	; J---I
 D$0101	EQU	0101H	; ---L-
-I.0102	EQU	0102H	; ----I
 C.011F	EQU	011FH	; -C---
 C$0147	EQU	0147H	; -C---
-I$0156	EQU	0156H	; ----I
 C.0160	EQU	0160H	; -C---
 C$0165	EQU	0165H	; -C---
-I$017A	EQU	017AH	; ----I
 C.0184	EQU	0184H	; -C---
 C$0193	EQU	0193H	; -C---
-I$01A6	EQU	01A6H	; ----I
-I$01B5	EQU	01B5H	; ----I
 C.0200	EQU	0200H	; JC--I
-I.0301	EQU	0301H	; ----I
 J$0302	EQU	0302H	; J----
-I.0502	EQU	0502H	; ----I
 D.2020	EQU	2020H	; --S--
 D.2029	EQU	2029H	; --S-I
 D$2030	EQU	2030H	; --S--
 J$4022	EQU	4022H	; J----
 D$4420	EQU	4420H	; --S--
-D.8000	EQU	8000H	; ---LI
-D.8001	EQU	8001H	; --SL-
-D.9000	EQU	9000H	; --S--
-D$C059	EQU	0C059H	; ---L-
+
+FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
+FDCDAT	EQU	8001H	; --SL-		;WD37C65 PORT - DATA REGISTER
+FDCLDO	EQU	9000H	; --S--		;WD37C65 PORT - LOAD OPERATION REGISTER
+FDCSTAL	EQU	0000H				;WD37C65 PORT - STATUS REGISTER MIRROR
+FDCDATL	EQU	0001H				;WD37C65 PORT - DATA REGISTER MIRROR
+FDCLDOL	EQU	1000H				;WD37C65 PORT - LOAD OPERATION REGISTER MIRROR
+
+WRSLT	EQU	0014H	; -C---
+ENASLT	EQU	0024H	; -C---
+
+D$C059	EQU	0C059H	; ---L-		;POSSIBLY GET DIR ACCORDING TO DISK INTERFACE EMULATOR ON SF
 J$C063	EQU	0C063H	; J----
-J$C06A	EQU	0C06AH	; J----
+J$C06A	EQU	0C06AH	; J----		;POSSIBLY CALL TO WRITE SECTOR? DISK INTERFACE EMULATOR ON SF SUGGESTED...
 C$C081	EQU	0C081H	; -C---
-I$C08F	EQU	0C08FH	; ----I
-I.C0B5	EQU	0C0B5H	; ----I
 D$C0C3	EQU	0C0C3H	; --S--
 D.C0DA	EQU	0C0DAH	; --SL-
 C$F2F6	EQU	0F2F6H	; -C---
-;RAMAD1	EQU	0F342H	; ---L-		;SLOT ADDR OF RAM IN PAGE 1
-D.F34D	EQU	0F34DH	; --SL-
-C$F368	EQU	0F368H	; -C---
-C.F37D	EQU	0F37DH	; -C---
-I$F51F	EQU	0F51FH	; ----I
+RAMAD1	EQU	0F342H	; ---L-		;SLOT ADDR OF RAM IN PAGE 1
+SECBUF	EQU	0F34DH	; --SL-		;TEMPORARY STORAGE FOR FAT SECTOR POINTER
+SETROM	EQU	0F368H	; -C---		;SWITCH DISK-ROM TO PAGE 1
+ROMBDOS	EQU	0F37DH	; -C---		;INTER-SLOT CALL TO BDOS ROUTINES
 C$F8FD	EQU	0F8FDH	; -C---
-;EXPTBL	EQU	0FCC1H	; ----I
-;DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - DISABLING INTERRUPTS - BEFORE INTERACT W/ DISK
-;ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - ENABLING INTERRUPTS - AFTER INTERACT W/ DISK
+EXPTBL	EQU	0FCC1H	; ----I
+DISINT	EQU	0FFCFH	; -C---		;HOOK TO EXTENDED BIOS - DISABLING INTERRUPTS - BEFORE INTERACT W/ DISK
+ENAINT	EQU	0FFD4H	; -C---		;HOOK TO EXTENDED BIOS - ENABLING INTERRUPTS - AFTER INTERACT W/ DISK
 SSLTRG	EQU	0FFFFH	; --SL-		SECONDARY SLOT REGISTER
+
+DEFDPB	EQU	DSK7203-1
 
 MYSIZE	EQU	25
 SECLEN	EQU	512
+
+
+		        ORG	7405H
 
 ;---------------------------------------------------
 ;	  Subroutine Get current slotid on page
@@ -8824,21 +8807,21 @@ SECLEN	EQU	512
 ;	     Outputs ________________________
 ;---------------------------------------------------
 
-C.7405:
+GTCSLT:
 		PUSH BC					;Save the values
         PUSH DE
         LD A,B					;Get input for Page 0?
         OR A					;If 0, set Z-flag
         IN A,(0A8H)				;Read Primary Slot Register into 'A'
-        JR Z,J$7413				;If Page 0 is Slot 0, skip ahead
+        JR Z,GTCSLT3			;If Page 0 is Slot 0, skip ahead
         PUSH BC					;Save again, as we'll be decrementing
-J$740E:
+GTCSLT2:	
 		RRCA					;Rotate twice with carry, appears to calculate
         RRCA					;page slot assignment
-        DJNZ J$740E				;Decrement 'B' and Jump if not 0
+        DJNZ GTCSLT2			;Decrement 'B' and Jump if not 0
         POP BC					;Once Zero, A is calculated, get back 'B'
 
-J$7413:
+GTCSLT3:
 		AND 03H					; primary slot - probably bit mask ?
         LD E,A					; used as an offset: 00XX + HL
         LD D,00H
@@ -8856,14 +8839,14 @@ J$7413:
         LD A,B
         OR A			; page 0 ?
         LD A,(HL)
-        RLCA
-        RLCA
-        JR Z,J$7431
-J$742D:
-		RRCA
-        RRCA
-        DJNZ J$742D
-J$7431:
+        RLCA	
+        RLCA	
+        JR Z,GTCSLT5
+GTCSLT4:
+		RRCA	
+        RRCA	
+        DJNZ GTCSLT4
+GTCSLT5:
 		AND 0CH
         OR E
         POP DE
@@ -8874,7 +8857,7 @@ J$7431:
 ;	     Inputs  B = slotid
 ;	     Outputs ________________________
 
-C.7437:
+SSLTID:
 		DI
         PUSH BC
         LD B,A
@@ -8882,7 +8865,7 @@ C.7437:
         LD C,A
         LD A,B
         BIT 7,A
-        JR NZ,J$744B
+        JR NZ,SSLTID2
         IN A,(0A8H)
         AND 0FCH
         OR C
@@ -8890,7 +8873,8 @@ C.7437:
         POP BC
         RET
 
-J$744B:	PUSH DE
+SSLTID2:
+		PUSH DE
         IN A,(0A8H)
         AND 0FCH
         OR C
@@ -8918,152 +8902,156 @@ J$744B:	PUSH DE
         POP DE
         POP BC
         RET
-
+		
 ;	  Subroutine Enable FDC on page 0
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
 
-C.7473:
+ENAFDC:
 		PUSH AF
         PUSH BC
         PUSH DE
         PUSH HL
         CALL GETWRK
         LD B,0			; page 0
-        CALL C.7405			; Get current slotid on page
+        CALL GTCSLT			; Get current slotid on page
         LD (IX+24),A
         LD B,1			; page 1
-        CALL C.7405			; Get current slotid on page
+        CALL GTCSLT			; Get current slotid on page
         LD (IX+23),A
         LD B,2			; page 2
-        CALL C.7405			; Get current slotid on page
+        CALL GTCSLT			; Get current slotid on page
         LD (IX+22),A
-        DI
+        DI 
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         POP HL
         POP DE
         POP BC
         POP AF
         RET
 
-I$749E:
-		RET M
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD H,E
-        LD BC,I.0502
-        NOP
+;---------------------------------------------------
+;
+;		DISK PARAMETERS IN BLOCK DATA
+;
+;---------------------------------------------------
 
-I74B0:
-		LD SP,HL
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD C,00H
-        JP Z,J$0302
-        RLCA
-        NOP
-        JP M,C.0200
-;
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD A,(BC)
-        NOP
-        INC A
-        LD BC,I.0301
-        NOP
-        EI
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD A,E
-        LD (BC),A
-        LD (BC),A
-        DEC B
-        NOP
-        CALL M,C.0200
-;
-        RRCA
-        INC B
-        NOP
-        LD BC,1
-        LD (BC),A
-        LD B,B
-        ADD HL,BC
-        NOP
-        LD H,B
-        LD BC,I.0502
-        NOP
-        DEFB 0FDH		; << Illegal Op Code Byte >>
-;	-----------------
-;
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        INC C
-        NOP
-        LD H,E
-        LD BC,I.0502
-        NOP
-        CP 00H
-        LD (BC),A
-        RRCA
-        INC B
-        NOP
-        LD BC,1
-        LD (BC),A
-        LD B,B
-        RLCA
-        NOP
-        LD A,(D$0101)
-        INC BC
-        NOP
-        RST 38H
-        NOP
-        LD (BC),A
-        RRCA
-        INC B
-        LD BC,I.0102
-        NOP
-        LD (BC),A
-        LD (HL),B
-        LD A,(BC)
-        NOP
-        INC A
-        LD BC,I.0301
-        NOP
+DSKPMT:						;DISK PARAMETERS
+DSK3603:					;BLOCK DATA?
+							;Confirmed by Arjen
+        DEFB	0F8H		;F8 MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	01H			;3.5 360KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	355
+        DEFB	2
+        DEFW	5
 
-DEFDPB	EQU	I74B0-1
+DSK7203:						;BLOCK DATA
+		DEFB	0F9H		;F9 MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;3.5 720KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	14
+        DEFW	714
+        DEFB	3
+        DEFW	7
+DSK3203:		
+		DEFB	0FAH		;FA MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	01H			;3.5 320KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	10
+        DEFW	316
+        DEFB	1
+        DEFW	3
+DSK6403:
+        DEFB	0FBH		;FB MEDIA
+        DEFW	512			;80 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;3.5 640KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	635
+        DEFB	2
+        DEFW	5
+DSK1805:
+        DEFB	0FCH		;FC MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	00H			;5.25 180KB
+        DEFB	01H
+        DEFW	1
+        DEFB	2
+        DEFB	64
+        DEFW	9
+        DEFW	352
+        DEFB	2
+        DEFW	5
+DSK3605:
+        DEFB	0FDH		;FD MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;9 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;5.25 360KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	12
+        DEFW	355
+        DEFB	2
+        DEFW	5
+DSK1605:
+        DEFB	0FEH		;FE MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;SINGLE SIDED
+        DEFB	00H			;5.25 160KB
+        DEFB	01H
+        DEFW	1
+        DEFB	2
+        DEFB	64
+        DEFW	7
+        DEFW	314
+        DEFB	1
+        DEFW	3
+DSK3205:
+        DEFB	0FFH		;FF MEDIA
+        DEFW	512			;40 TRACKS
+        DEFB	0FH			;8 SECTORS
+        DEFB	04H			;DOUBLE SIDED
+        DEFB	01H			;5.25 320KB
+        DEFB	02H
+        DEFW	1
+        DEFB	2
+        DEFB	112
+        DEFW	10
+        DEFW	316
+        DEFB	1
+        DEFW	3
 
 
 ;	  Subroutine DSKIO
@@ -9071,12 +9059,11 @@ DEFDPB	EQU	I74B0-1
 ;	     Outputs ________________________
 
 DSKIO:
-C.752E:
 		JP NC,J$761F
 ;
         CALL DISINT
         DI
-        CALL C.7473			; Enable FDC on page 0
+        CALL ENAFDC			; Enable FDC on page 0
         CALL C$7563
 J.753B:
 		PUSH AF
@@ -9097,7 +9084,7 @@ J$7554:
 		LD (IX+2),C
 J$7557:
 		LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         POP AF
         EI
         CALL ENAINT
@@ -9136,13 +9123,13 @@ C$7563:
         PUSH DE
         PUSH BC
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
-        LD DE,(D.F34D)
+        CALL SSLTID			; Set slotid on page 0
+        LD DE,(SECBUF)
         PUSH DE
         LD BC,512
         CALL XFER
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
         POP HL
         POP BC
@@ -9153,7 +9140,7 @@ C$7563:
         JR J$75A1
 ;
 ;	-----------------
-J.759E:
+J.759E:	
 		CALL C.75A9
 J$75A1:
 		RET C
@@ -9172,7 +9159,7 @@ J$75A1:
 ;	     Outputs ________________________
 ;
 C.75A9:
-		LD E,07H	; 7
+		LD E,07H	; 7 
 J$75AB:
 		CALL C.781E
 ;
@@ -9237,7 +9224,7 @@ J$75DE:
 ;
         PUSH AF
         LD A,(IX+6)
-        AND 01H	; 1
+        AND 01H	; 1 
         INC A
         CPL
         AND (IX+11)
@@ -9251,23 +9238,23 @@ J$75DE:
         SCF
         LD E,A
         BIT 4,E
-        LD A,0AH	; 10
+        LD A,0AH	; 10 
         RET NZ
 ;
         BIT 2,E
-        LD A,08H	; 8
+        LD A,08H	; 8 
         RET NZ
 ;
         BIT 5,E
-        LD A,04H	; 4
+        LD A,04H	; 4 
         RET NZ
 ;
-        LD A,0CH	; 12
+        LD A,0CH	; 12 
         RET
 ;
 ;	-----------------
-J$7618:
-		LD A,02H	; 2
+J$7618:	
+		LD A,02H	; 2 
         SCF
         RET
 ;
@@ -9281,7 +9268,7 @@ J$761C:
 J$761F:
 		CALL DISINT
         DI
-        CALL C.7473			; Enable FDC on page 0
+        CALL ENAFDC			; Enable FDC on page 0
         CALL C$762C
         JP J.753B
 ;
@@ -9317,7 +9304,7 @@ C$762C:
         JP M,J.766F
 ;
         PUSH HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         CALL C.767A
 ;
         POP HL
@@ -9327,15 +9314,15 @@ C$762C:
         PUSH DE
         PUSH HL
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
         EX DE,HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         LD BC,512
         CALL XFER
 ;
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
         POP HL
         POP DE
@@ -9364,7 +9351,7 @@ J$7673:
 ;	     Outputs ________________________
 ;
 C.767A:
-		LD E,07H	; 7
+		LD E,07H	; 7 
 J$767C:
 		CALL C.781E
 ;
@@ -9426,7 +9413,7 @@ J$76AF:
 ;
 		PUSH AF
         LD A,(IX+6)
-        AND 01H	; 1
+        AND 01H	; 1 
         INC A
         CPL
         AND (IX+11)
@@ -9440,19 +9427,19 @@ J$76AF:
         SCF
         LD E,A
         BIT 2,E
-        LD A,08H	; 8
+        LD A,08H	; 8 
         RET NZ
 ;
         BIT 5,E
-        LD A,04H	; 4
+        LD A,04H	; 4 
         RET NZ
 ;
-        LD A,0CH	; 12
-        RET
+        LD A,0CH	; 12 
+        RET	
 ;
 ;	-----------------
 J$76E0:
-		LD A,02H	; 2
+		LD A,02H	; 2 
         SCF
         RET
 ;
@@ -9471,11 +9458,11 @@ C.76E4:
         POP HL
         POP BC
         POP AF
-        CP 02H	; 2
+        CP 02H	; 2 
         JR C,J$76F5
 ;
 J$76F1:
-		LD A,0CH	; 12
+		LD A,0CH	; 12 
         SCF
         RET
 ;
@@ -9519,18 +9506,18 @@ J$770B:
 J.7723:
 		ADD A,1CH
         PUSH AF
-        AND 01H	; 1
+        AND 01H	; 1 
         BIT 0,C
         JR Z,J.7732
         SRL L
         JR NC,J.7732
-        OR 04H	; 4
+        OR 04H	; 4 
 J.7732:
 		LD (IX+6),A
         PUSH AF
         SRL A
         SRL A
-        AND 01H	; 1
+        AND 01H	; 1 
         LD (IX+8),A
         POP AF
         LD D,A
@@ -9541,7 +9528,7 @@ J.7732:
         OR D
         LD D,A
         POP AF
-        LD (D.1000),A		; PC AT mode, motor on, dma enabled, select drive
+        LD (FDCLDOL),A		; PC AT mode, motor on, dma enabled, select drive
         LD (IX+12),A
         LD A,(IX)
         AND A
@@ -9568,7 +9555,7 @@ J$7763:
         CP H
         JR Z,J.779B
 ;
-        XOR 01H	; 1
+        XOR 01H	; 1 
         LD (IX+3),A
         JR J.779B
 ;
@@ -9583,14 +9570,14 @@ J$777A:
         PUSH DE
         PUSH BC
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         CALL PROMPT
         POP BC
         POP DE
         POP IX
         DI
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
 J.779B:
 		CALL C.77E2
@@ -9613,14 +9600,14 @@ C.77A0:
         BIT 7,D
         JR NZ,J$77B0
 ;
-        CP 0AH	; 10
+        CP 0AH	; 10 
         RET C
 ;
 J$77B0:
-		CP 09H	; 9
+		CP 09H	; 9 
         RET C
 ;
-        LD A,01H	; 1
+        LD A,01H	; 1 
         LD (IX+9),A
         BIT 6,D
         JR Z,J.77CE
@@ -9630,9 +9617,9 @@ J$77B0:
 ;
         SET 2,D
         LD A,D
-        AND 0FH	; 15
+        AND 0FH	; 15 
         LD (IX+6),A
-        LD A,01H	; 1
+        LD A,01H	; 1 
         LD (IX+8),A
         RET
 ;
@@ -9640,7 +9627,7 @@ J$77B0:
 J.77CE:
 		RES 2,D
         LD A,D
-        AND 0FH	; 15
+        AND 0FH	; 15 
         LD (IX+6),A
         XOR A
         LD (IX+8),A
@@ -9660,17 +9647,17 @@ C.77E2:
 		CALL C.781E
 ;
         LD A,(IX+6)
-        AND 01H	; 1
+        AND 01H	; 1 
         INC A
         AND (IX+11)
         JR NZ,J$780A
 ;
         LD A,(IX+6)
-        AND 01H	; 1
+        AND 01H	; 1 
         INC A
         OR (IX+11)
         LD (IX+11),A
-        LD A,07H	; 7
+        LD A,07H	; 7 
         CALL C.785B
 ;
         LD A,(IX+6)
@@ -9679,7 +9666,7 @@ C.77E2:
         CALL C.788C
 ;
 J$780A:
-		LD A,0FH	; 15
+		LD A,0FH	; 15 
         CALL C.785B
 ;
         LD A,(IX+6)
@@ -9697,16 +9684,16 @@ J$780A:
 ;	     Outputs ________________________
 ;
 C.781E:
-		LD	A,(X.0000)
+		LD	A,(FDCSTAL)
         AND 0D0H			; RQM,DIO,CB
         XOR 80H
         RET Z
         XOR A
         LD (IX+11),A
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
         LD A,(IX+12)
-        LD (D.1000),A
+        LD (FDCLDOL),A
         RET
 ;
 ;	-----------------
@@ -9730,7 +9717,7 @@ C.7837:
 ;
 C.783C:
 		PUSH BC
-        LD B,06H	; 6
+        LD B,06H	; 6 
         PUSH IX
 J$7841:
 		CALL C.785B
@@ -9756,12 +9743,12 @@ J$7841:
 C.785B:
 		PUSH AF
 J$785C:
-		LD A,(X.0000)
+		LD A,(FDCSTAL)
         AND 0E0H			; RQM,DIO,EXM
         CP 80H			; DR ready, CPU->FDC, Execution finshed ?
         JR NZ,J$785C		; nope, wait
         POP AF
-        LD (D.0001),A
+        LD (FDCDATL),A
         RET
 
 ;	  Subroutine __________________________
@@ -9771,15 +9758,15 @@ J$785C:
 C.786A:
 		PUSH IX
 J.786C:
-		LD A,(X.0000)
+		LD A,(FDCSTAL)
         AND 0C0H			; RQM, DIO
         CP 0C0H
         JR NZ,J.786C
-        LD A,(D.0001)
+        LD A,(FDCDATL)
         LD (IX+14),A
         INC IX
         CALL C.7837
-        LD A,(X.0000)
+        LD A,(FDCSTAL)
         AND 0C0H			; RQM, DIO
         CP 80H
         JR NZ,J.786C
@@ -9796,7 +9783,7 @@ C.788C:
 		PUSH BC
         LD B,20H	; " "
 J$788F:
-		LD A,08H	; 8
+		LD A,08H	; 8 
         CALL C.785B
 ;
         CALL C.786A
@@ -9824,25 +9811,25 @@ J$78A9:
 
 INIHRD:
         LD B,0			; page 0
-        CALL C.7405			; Get current slotid on page
+        CALL GTCSLT			; Get current slotid on page
         PUSH AF
         LD B,1			; page 1
-        CALL C.7405			; Get current slotid on page
-        CALL C.7437			; Set slotid on page 0
+        CALL GTCSLT			; Get current slotid on page
+        CALL SSLTID			; Set slotid on page 0
         XOR A
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
         LD A,0CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD A,03H
         CALL C.785B
         LD A,9FH
         CALL C.785B
-        LD A,03H	; 3
+        LD A,03H	; 3 
         CALL C.785B
         LD A,1CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
-        LD A,07H	; 7
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
+        LD A,07H	; 7 
         CALL C.785B
         LD A,00H
         CALL C.785B
@@ -9854,9 +9841,9 @@ INIHRD2:
         OR L
         JR NZ,INIHRD2
         LD A,0CH
-        LD (D.1000),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
+        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         POP AF
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         RET
 
 ;	  Subroutine MTOFF
@@ -9871,8 +9858,8 @@ MTOFF:
         LD (IX+12),A
         LD E,A
         LD B,1			; page 1
-        CALL C.7405			; Get current slotid on page
-        LD HL,D.1000
+        CALL GTCSLT			; Get current slotid on page
+        LD HL,FDCLDOL
         CALL WRSLT
         POP HL
         POP DE
@@ -9884,15 +9871,15 @@ MTOFF:
 ;	     Outputs ________________________
 
 DRIVES:
-        CALL C.7473			; Enable FDC on page 0
+        CALL ENAFDC			; Enable FDC on page 0
         PUSH BC
         PUSH AF
         LD A,2DH			; PC AT mode, motor 2 on, motor 1 off, dma enabled, select drive 2
-        LD (D.1000),A
+        LD (FDCLDOL),A
         CALL C.788C
-        LD A,07H	; 7
+        LD A,07H	; 7 
         CALL C.785B
-        LD A,01H	; 1
+        LD A,01H	; 1 
         CALL C.785B
         CALL C.788C
         LD L,1
@@ -9901,16 +9888,16 @@ DRIVES:
 DRIVES2:
 		LD (IX+5),L
         LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
-        LD (D.1000),A
+        LD (FDCLDOL),A
         POP AF
         JR Z,DRIVES3
         LD L,2
-DRIVES3:
+DRIVES3:	
 		PUSH HL
         PUSH AF
         CALL GETWRK
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         POP AF
         POP HL
         POP BC
@@ -9930,7 +9917,7 @@ INIENV2:
         INC HL
         DJNZ INIENV2
         LD (IX+5),D
-        LD (IX+10),02H	; 2
+        LD (IX+10),02H	; 2 
         LD HL,I$7966
         JP SETINT
 
@@ -9948,9 +9935,9 @@ I$7966:						;Disk drive interrupt handler?
         LD A,0CH			; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD E,A
         LD B,1			; page 1
-        CALL C.7405			; Get current slotid on page
+        CALL GTCSLT			; Get current slotid on page
         PUSH HL
-        LD HL,D.1000
+        LD HL,FDCLDOL
         CALL WRSLT
         POP HL
 J.7986:
@@ -9989,20 +9976,20 @@ DSKCHG:
 DSKCHG2:
 		INC B
         DEC B
-        LD B,01H	; 1
+        LD B,01H	; 1 
         RET NZ
         PUSH BC
         PUSH HL
         LD DE,1
-        LD HL,(D.F34D)
-        CALL C.752E
+        LD HL,(SECBUF)
+        CALL DSKIO
         JR C,DSKCHG3
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         LD B,(HL)
         POP HL
         PUSH BC
         CALL GETDPB
-        LD A,0CH	; 12
+        LD A,0CH	; 12 
         JR C,DSKCHG3
         POP AF
         POP BC
@@ -10025,7 +10012,7 @@ DSKCHG3:
 ;	     Outputs ________________________
 
 
-GETDPB:	EI
+GETDPB:	EI 
         EX DE,HL
         INC DE
         LD A,B
@@ -10041,7 +10028,7 @@ GETDPB:	EI
         ADD HL,HL
         ADD HL,HL
         ADD HL,BC
-        LD BC,I$749E
+        LD BC,DSKPMT
         ADD HL,BC
         LD BC,18
         LDIR
@@ -10058,8 +10045,8 @@ C.79F0:
         PUSH DE
         PUSH BC
         LD HL,I$7A84
-        LD DE,(D.F34D)
-        LD BC,I$01B5
+        LD DE,(SECBUF)
+        LD BC,01B5H
         LDIR
         LD HL,I$7A4E
 J$7A02:
@@ -10072,14 +10059,14 @@ J$7A02:
         JR Z,J$7A1F
 ;
         PUSH HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         ADD HL,DE
         INC HL
         LD C,(HL)
         INC HL
         LD B,(HL)
         EX DE,HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         ADD HL,BC
         EX DE,HL
         LD (HL),D
@@ -10106,7 +10093,7 @@ C$7A23:
         PUSH DE
         PUSH BC
         LD HL,I$7A6A
-J$7A29:
+J$7A29:	
 		LD E,(HL)
         INC HL
         LD D,(HL)
@@ -10115,7 +10102,7 @@ J$7A29:
         JR Z,J$7A44
 ;
         PUSH HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         ADD HL,DE
         EX DE,HL
         POP HL
@@ -10147,7 +10134,7 @@ J$7A44:
 ;
 C.7A48:
 		PUSH HL
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         EX (SP),HL
         RET
 ;
@@ -10161,23 +10148,23 @@ I$7A4E:
         LD E,(HL)
         NOP
         LD H,H
-        NOP
+        NOP 
         LD (HL),C
         NOP
         ADC A,B
         NOP
         DEC DE
-        LD BC,I$0156
+        LD BC,0156H
         LD L,D
-        LD BC,I$017A
+        LD BC,017AH
         LD A,A
-        LD BC,I$01A6
+        LD BC,01A6H
         DEFB 0,0
-I$7A6A:
-		LD A,(D_3E00)
+I$7A6A:	
+		LD A,(D$3E00)
         LD H,(HL)
         LD E,B
-        NOP
+        NOP 
         LD A,(DE)
         LD (HL),A
         HALT
@@ -10197,7 +10184,7 @@ I$7A84:
         PUSH DE
         PUSH BC
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
         PUSH IX
         LD A,(RAMAD1)
@@ -10216,11 +10203,11 @@ I$7A84:
 J$7AA8:
 		DEC HL
         LD A,H
-        ADD A,02H	; 2
+        ADD A,02H	; 2 
         INC HL
         JP M,J$00AF
 ;
-        LD E,07H	; 7
+        LD E,07H	; 7 
 J$7AB2:
 		CALL C$0147			;CALL FORMAT from MSX-BIOS ?
 ;
@@ -10294,7 +10281,7 @@ J$7AFA:
 ;
         PUSH AF
         LD A,(IX+6)
-        AND 01H	; 1
+        AND 01H	; 1 
         INC A
         CPL
         AND (IX+11)
@@ -10308,23 +10295,23 @@ J$7AFA:
         SCF
         LD E,A
         BIT 4,E
-        LD A,0AH	; 10
+        LD A,0AH	; 10 
         JR NZ,J.7B32
 ;
         BIT 2,E
-        LD A,08H	; 8
+        LD A,08H	; 8 
         JR NZ,J.7B32
 ;
         BIT 5,E
-        LD A,04H	; 4
+        LD A,04H	; 4 
         JR NZ,J.7B32
 ;
-        LD A,0CH	; 12
+        LD A,0CH	; 12 
         JR J.7B32
 ;
 ;	-----------------
 ?.7B2B:
-		LD A,02H	; 2
+		LD A,02H	; 2 
         SCF
         JR J.7B32
 ;
@@ -10345,7 +10332,7 @@ J$7B33:
         LD H,80H
         CALL ENASLT
 ;
-        CALL C$F368
+        CALL SETROM
 ;
         POP IX
         PUSH IX
@@ -10355,7 +10342,7 @@ J$7B33:
 ;
         POP IX
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
 ;
         POP AF
         POP BC
@@ -10374,14 +10361,14 @@ J$7B33:
         BIT 7,D
         JR NZ,J$7B71
 ;
-        CP 0AH	; 10
+        CP 0AH	; 10 
         RET C
 ;
 J$7B71:
-		CP 09H	; 9
+		CP 09H	; 9 
         RET C
 ;
-        LD A,01H	; 1
+        LD A,01H	; 1 
         LD (IX+9),A
         BIT 6,D
         JR Z,J.7B8F
@@ -10391,9 +10378,9 @@ J$7B71:
 ;
         SET 2,D
         LD A,D
-        AND 0FH	; 15
+        AND 0FH	; 15 
         LD (IX+6),A
-        LD A,01H	; 1
+        LD A,01H	; 1 
         LD (IX+8),A
         RET
 ;
@@ -10401,7 +10388,7 @@ J$7B71:
 J.7B8F:
 		RES 2,D
         LD A,D
-        AND 0FH	; 15
+        AND 0FH	; 15 
         LD (IX+6),A
         XOR A
         LD (IX+8),A
@@ -10420,12 +10407,12 @@ J.7B8F:
         LD H,40H	; "@"
         CALL ENASLT
         LD A,(IX+23)
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         POP HL
         CALL C.77E2
         PUSH HL
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
+        CALL SSLTID			; Set slotid on page 0
         LD A,(RAMAD1)
         LD H,40H	; "@"
         CALL ENASLT
@@ -10436,18 +10423,18 @@ J.7B8F:
 ;
 ;	-----------------
 ?.7BCB:
-		LD A,(D.8000)
+		LD A,(FDCSTA)				;ANOTHER ROUTINE TO WRITE DATA TO THE FDC
         AND 0D0H
         XOR 80H
         RET Z
 ;
         XOR A
         LD (IX+11),A
-        LD (D.9000),A
+        LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
         CALL C.0160
 ;
         LD A,(IX+12)
-        LD (D.9000),A
+        LD (FDCLDO),A				;WRITE TO LOAD OPERATION REGISTER
         RET
 ;
 ;	-----------------
@@ -10461,7 +10448,7 @@ J.7B8F:
 ;	-----------------
 ?.7BE9:
 		PUSH BC
-        LD B,06H	; 6
+        LD B,06H	; 6 
         PUSH IX
 J$7BEE:
 		CALL C.0184
@@ -10479,37 +10466,37 @@ J$7BEE:
         CALL C.0184
 ;
         LD A,0FFH
-        PUSH AF
-J$7C09:
-		LD A,(D.8000)
-        AND 0E0H
+        PUSH AF				;Routine for reading FDC status
+J$7C09:						;Read Status Register
+		LD A,(FDCSTA)
+        AND 0E0H			;Compare if Ready
         CP 80H
-        JR NZ,J$7C09
+        JR NZ,J$7C09		;If not, wait until it is
 ;
-        POP AF
-        LD (D.8001),A
+        POP AF				;When ready, write data and return
+        LD (FDCDAT),A
         RET
 ;
 ;	-----------------
-?.7C17:
+?.7C17:						;Routine for reading data from FDC
 		PUSH IX
 J.7C19:
-		LD A,(D.8000)
-        AND 0C0H
+		LD A,(FDCSTA)		;Read Status Register
+        AND 0C0H			;Compare if data is available
         CP 0C0H
-        JR NZ,J.7C19
+        JR NZ,J.7C19		;If not, wait until it is
 ;
-        LD A,(D.8001)
-        LD (IX+14),A
-        INC IX
-        CALL C.0160
+        LD A,(FDCDAT)		;When ready, write data
+        LD (IX+14),A		;Get something........
+        INC IX				;Increment Pointer
+        CALL C.0160			;And go do what??????
 ;
-        LD A,(D.8000)
-        AND 0C0H
+        LD A,(FDCSTA)		;Now get status again
+        AND 0C0H			;Assuming checking if done
         CP 80H
-        JR NZ,J.7C19
+        JR NZ,J.7C19		;If not done, do it again
 ;
-        POP IX
+        POP IX				;Otherwise, restore and return
         RET
 
 ;	  Subroutine CHOICE
@@ -10533,12 +10520,12 @@ I$7C3D:
 	;DEFB 33H,29H,20H,35H,2EH,32H,35H,22H,20H,44H,6FH,62H,6CH,65H,20H,6CH
 	;DEFB 61H,64H,6FH,20H,20H,28H,33H,36H,30H,20H,4BH,62H,29H,0DH,0AH,0DH
 	;DEFB 0AH,00H
-
+	
 	;Orignal Spanish Text
 	;DEFB 0DH,0AH,'1) 3.5"  Simple lado (360 Kb)'
 	;DEFB 0DH,0AH,'2) 3.5"  Doble lado  (720 Kb)'
 	;DEFB 0DH,0AH,'3) 5.25" Doble lado  (360 Kb)',0DH,0AH,0DH,0AH,00H
-
+	
 	;Suggest English Modification
 	DEFB 0DH,0AH,'1) 3.5"  Single Sided(360 Kb)'
 	DEFB 0DH,0AH,'2) 3.5"  Double Sided(720 Kb)'
@@ -10558,28 +10545,28 @@ I$7C3D:
 DSKFMT:
         CALL DISINT
         DI
-        CALL C.7473			; Enable FDC on page 0
+        CALL ENAFDC			; Enable FDC on page 0
 J$7CA5	EQU $-1				; Equates way down here?!?!
         DEC A
         JR Z,J.7CAF
         BIT 0,A
         JR NZ,J.7CAF
 J$7CAC	EQU $-1
-        LD A,05H	; 5
+        LD A,05H	; 5 
 J.7CAF:
 		ADD A,0F8H
         LD	C,A
 J$7CB2:
 		PUSH AF
         LD A,D
-        CP 02H	; 2
+        CP 02H	; 2 
 J$7CB6:
 		JR C,J$7CBE
 ;
         POP AF
-        LD A,0CH	; 12
+        LD A,0CH	; 12 
         JP J.7D8D
-
+		
 J$7CBC	EQU $-2
 
 ;
@@ -10589,23 +10576,23 @@ J$7CBE:
         CALL C.76E4
 ;
         POP BC
-        LD A,06H	; 6
+        LD A,06H	; 6 
 J$7CC7:
 		JP C,J.7D8D
 ;
         LD A,B
         LD (IX+13),A
-        LD A,01H	; 1
+        LD A,01H	; 1 
         EX AF,AF'
 J.7CD1:
 		PUSH DE
         PUSH IX
         POP HL
-        LD BC,I$0007
+        LD BC,0007H
         ADD HL,BC
         PUSH HL
 J$7CDA:
-		LD C,01H	; 1
+		LD C,01H	; 1 
         LD A,4DH	; "M"
         CALL C.785B
 ;
@@ -10613,10 +10600,10 @@ J$7CDA:
         CALL C.785B
 J$7CE3	EQU	$-2
 ;
-        LD A,02H	; 2
+        LD A,02H	; 2 
         CALL C.785B
 ;
-        LD A,09H	; 9
+        LD A,09H	; 9 
         CALL C.785B
 ;
         LD A,52H	; "R"
@@ -10628,7 +10615,7 @@ J$7CF9:
 		CALL C.785B
 ;
 J$7CFC:
-		LD B,04H	; 4
+		LD B,04H	; 4 
         EX AF,AF'
         LD (IX+9),A
         INC A
@@ -10670,9 +10657,9 @@ J$7D17:
 ;
         SET 2,D
         LD (IX+6),D
-        LD (IX+8),01H	; 1
-        LD (IX+9),01H	; 1
-        LD A,01H	; 1
+        LD (IX+8),01H	; 1 
+        LD (IX+9),01H	; 1 
+        LD A,01H	; 1 
         EX AF,AF'
         JR J.7CD1
 ;
@@ -10693,37 +10680,37 @@ J$7D4A:
         LD (IX+7),A
         IN A,(0AAH)
         AND 0F0H
-        ADD A,07H	; 7
+        ADD A,07H	; 7 
         OUT (0AAH),A
         IN A,(0A9H)
-        AND 10H	; 16
+        AND 10H	; 16 
         JR NZ,J$7D6D
 ;
         IN A,(0AAH)
         DEC A
         OUT (0AAH),A
         IN A,(0A9H)
-        AND 02H	; 2
+        AND 02H	; 2 
         JR Z,J$7D87
 ;
 J$7D6D:
 		RES 2,D
         LD (IX+6),D
         LD (IX+8),00H
-        LD (IX+9),01H	; 1
+        LD (IX+9),01H	; 1 
         CALL C.77E2
 ;
-        LD A,01H	; 1
+        LD A,01H	; 1 
         EX AF,AF'
         JP NC,J.7CD1
 ;
 J$7D83:
-		LD A,06H	; 6
+		LD A,06H	; 6 
         JR J.7D8D
 ;
 ;	-----------------
 J$7D87:
-		LD A,0AH	; 10
+		LD A,0AH	; 10 
         JR J.7D8D
 ;
 ;	-----------------
@@ -10740,13 +10727,13 @@ J$7D91:
         RES 2,D
         LD (IX+6),D
         LD (IX+8),00H
-        LD (IX+9),01H	; 1
+        LD (IX+9),01H	; 1 
         CALL C.77E2
         JR C,J$7D83
         CALL GETWRK
         LD A,(IX+24)		; saved slotid on page 0
-        CALL C.7437			; Set slotid on page 0
-        LD HL,(D.F34D)
+        CALL SSLTID			; Set slotid on page 0
+        LD HL,(SECBUF)
         PUSH HL
         PUSH HL
         POP DE
@@ -10756,38 +10743,38 @@ J$7D91:
         LDIR
         LD HL,I$7E92
         POP DE
-        LD BC,I$00DB
+        LD BC,00DBH
         LDIR
         LD A,(IX+13)
-        LD IY,(D.F34D)
+        LD IY,(SECBUF)
         LD (IY+21),A
         CP 0F8H
         JR NZ,J$7DDB
-        LD (IY+26),01H	; 1
+        LD (IY+26),01H	; 1 
         JR J.7DEB
 ;
 ;	-----------------
 J$7DDB:
 		CP 0F9H
         JR NZ,J.7DEB
-        LD (IY+22),03H	; 3
+        LD (IY+22),03H	; 3 
         LD (IY+19),0A0H
-        LD (IY+20),05H	; 5
+        LD (IY+20),05H	; 5 
 J.7DEB:
-		LD HL,(D.F34D)
+		LD HL,(SECBUF)
         LD DE,0
-        LD B,01H	; 1
+        LD B,01H	; 1 
         LD C,A
         LD A,(IX+6)
-        AND 03H	; 3
+        AND 03H	; 3 
         SCF
         PUSH IX
-        CALL C.752E
+        CALL DSKIO
 ;
         POP IX
         JP C,J.7E7B
 ;
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         PUSH HL
         POP IY
         LD A,(IY+16)
@@ -10798,21 +10785,21 @@ J$7E0F:
         DJNZ J$7E0F
 ;
         ADD A,A
-        ADD A,07H	; 7
+        ADD A,07H	; 7 
         LD B,A
         LD DE,1
 J$7E1B:
 		LD A,(IX+13)
         PUSH BC
         PUSH DE
-        LD HL,(D.F34D)
-        LD B,01H	; 1
+        LD HL,(SECBUF)
+        LD B,01H	; 1 
         LD C,A
         LD A,(IX+6)
-        AND 03H	; 3
+        AND 03H	; 3 
         SCF
         PUSH IX
-        CALL C.752E
+        CALL DSKIO
 ;
         POP IX
         POP DE
@@ -10822,29 +10809,29 @@ J$7E1B:
         INC DE
         DJNZ J$7E1B
 ;
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         LD A,(IX+13)
         LD (HL),A
         INC HL
         LD (HL),0FFH
         INC HL
         LD (HL),0FFH
-        LD HL,(D.F34D)
-        LD B,01H	; 1
+        LD HL,(SECBUF)
+        LD B,01H	; 1 
         LD C,A
         LD DE,1
         LD A,(IX+6)
-        AND 03H	; 3
+        AND 03H	; 3 
         SCF
         PUSH IX
-        CALL C.752E
+        CALL DSKIO
 ;
         POP IX
         JP C,J.7E7B
 ;
-        LD HL,(D.F34D)
+        LD HL,(SECBUF)
         LD A,(IX+13)
-        LD B,01H	; 1
+        LD B,01H	; 1 
         LD C,A
         LD DE,2
         CP 0F9H
@@ -10854,8 +10841,8 @@ J$7E1B:
 J$7E72:
 		SCF
         LD A,(IX+6)
-        AND 03H	; 3
-        JP C.752E
+        AND 03H	; 3 
+        JP DSKIO
 ;
 ;	-----------------
 J.7E7B:
@@ -10882,7 +10869,7 @@ I$7E92:
         CP 90H
 
 ;Data String = TALENT
-
+        
 		DEFB "TALENT.1",00H
 
 ;ID STRING??? = 00H,02H,02H,01H,00H,02H,70H,00H,D0H,02H,FDH,02H,00H,09H,00H,02H,00H,00H,00H
@@ -10904,7 +10891,7 @@ I$7E92:
         LD (BC),A
         DEFB 0,0,0
 ;-----------------------
-
+		
 
         RET NC
 ;
@@ -10914,21 +10901,21 @@ I$7E92:
         INC HL
         LD (HL),0C0H
 J$7EBD:
-		LD SP,I$F51F
-        LD DE,I.C0B5
-        LD C,0FH	; 15
-        CALL C.F37D
+		LD SP,F51FH
+        LD DE,C0B5H
+        LD C,0FH				;BDOS CALL TO OPEN FILE (FCB)
+        CALL ROMBDOS
         INC A
         JP Z,J$C063
         LD DE,J.0100
-        LD C,1AH
-        CALL C.F37D
+        LD C,1AH				;BDOS CALL TO SET DISK TRANSFER ADDRESS
+        CALL ROMBDOS
         LD HL,1
         LD (D$C0C3),HL
         LD HL,04000H-0100H
-        LD DE,I.C0B5
-        LD C,27H	; "'"
-        CALL C.F37D
+        LD DE,C0B5H
+        LD C,27H				;BDOS CALL TO RANDOM BLOCK READ (FCB)
+        CALL ROMBDOS
         JP J.0100
 ;
 ;	-----------------
@@ -10938,18 +10925,18 @@ J$7EBD:
         CALL 0
         LD A,C
         AND 0FEH
-        CP 02H	; 2
+        CP 02H	; 2 
         JP NZ,J$C06A
 ;
         LD A,(D.C0DA)
         AND A
         JP Z,J$4022
 ;
-        LD DE,I$C08F
+        LD DE,C08FH
         CALL C$C081
 ;
-        LD C,07H	; 7
-        CALL C.F37D
+        LD C,07H				;BDOS CALL TO DIRECT CONSOLD INPUT
+        CALL ROMBDOS
 ;
         JR J$7EBD
 ;
@@ -10969,21 +10956,21 @@ J$7F13:
 ;
         PUSH DE
         LD E,A
-        LD C,06H	; 6
-        CALL C.F37D
+        LD C,06H				;BDOS CALL TO DIRECT CONSOLE IO
+        CALL ROMBDOS
 ;
         POP DE
         INC DE
         JR J$7F13
 ;
 ;	-----------------
-?.7F21:
+?.7F21:	
 
 ;Text data
 ;------------------------------------------------------
         DEFB 'Boot error',0DH,0AH
-	DEFB 'Press any key for retry',0DH,0AH,00H,00H
-	DEFB 'MSXDOS  SYS',00H
+		DEFB 'Press any key for retry',0DH,0AH,00H,00H
+		DEFB 'MSXDOS  SYS',00H
 ;------------------------------------------------------
 
 ;ROM PADDING
@@ -11000,5 +10987,3 @@ J$7F13:
 OEMSTA:
         SCF
         RET
-
-
