@@ -1426,7 +1426,7 @@ I$7A4E:
         LD BC,01A6H
         DEFB 0,0
 I$7A6A:	
-		LD A,(D$3E00)
+		LD A,(3E00H)
         LD H,(HL)
         LD E,B
         NOP 
@@ -1480,7 +1480,7 @@ J$7AB2:
         PUSH DE
         PUSH BC
         LD BC,0
-        LD DE,D.8000
+        LD DE,8000H
         LD A,45H	; "E"
         CALL 0165H			;CHKNEW from MSX-BIOS ?
 ;
