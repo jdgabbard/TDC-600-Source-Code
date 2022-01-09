@@ -5,6 +5,12 @@
 ; Documentation work by Doug Gabbard, RetroDepot.net
 ; Original disassembly taken from: https://sourceforge.net/p/msxsyssrc/git/ci/master/tree/
 
+; NOTE:  Some of this work is guesswork, as I am fairly unfamiliar with the MSX architecture,
+;  and have not found all references to locations within the BIOS memory (Such as a call
+;  to $00DD, which is in the middle of the Paddle Routine).  I must speculate that these are
+;  memory locations in MSX-DOS instead of the BIOS itself.  However, I have yet to find where
+;  these are documented.  So I'm making an educated guess...
+
 ; Main Status Register A0=0+RD
 ; DATA A0=1+RD
 ; DATA A0=1+WR
@@ -99,7 +105,7 @@ GTCSLT3:
         OR E					;Now combine
         LD E,A					;And store - Now we have Primary Slot ID???
         INC HL					;Now get Secondary Slot Register for Page
-        INC HL
+        INC HL					;Located in SLTTBL+(Offset)
         INC HL
         INC HL
         LD A,B					;Get inpute for Page. B=Page (0,1,2,3)
@@ -122,82 +128,92 @@ GTCSLT5:
 ;---------------------------------------------------
 ;	  Subroutine Set slotid on page 0
 ;	     Inputs  B = slotid
-;	     Outputs ________________________
+;	     Outputs A = New Primary Slot ID
+;		 Registers: AF affected.
 ;---------------------------------------------------
 
 SSLTID:
-		DI
-        PUSH BC
-        LD B,A
-        AND 03H
-        LD C,A
-        LD A,B
-        BIT 7,A
-        JR NZ,SSLTID2
-        IN A,(0A8H)
-        AND 0FCH
-        OR C
-        OUT (0A8H),A
-        POP BC
-        RET
+		DI						;We're writing slots, no interruptions...
+        PUSH BC					;Save the Slot ID to be written
+        LD B,A					;Get it in 'A'
+        AND 03H					;Bitmask for Page 0
+        LD C,A					;Store it in 'C'
+        LD A,B					;Get the Slot ID again
+        BIT 7,A					;Test if Expanded Slot??? Just a guess...
+        JR NZ,SSLTID2			;If so, jump and do that....
+        IN A,(0A8H)				;Otherwise, get current Primary Slots
+        AND 0FCH				;Bitmask off Page 0
+        OR C					;Combine with Slot ID for Page
+        OUT (0A8H),A			;Write the Slot
+        POP BC					;Get Slot ID back in 'B'
+        RET						;And return with New Slot ID in 'A'
+								;But we didn't Enable Interrupts.....
+								;This may be an issue, not sure......
 
 SSLTID2:
-		PUSH DE
-        IN A,(0A8H)
-        AND 0FCH
-        OR C
-        LD D,A
+		PUSH DE					;We dont want to modify DE....
+        IN A,(0A8H)				;Get Current Slot ID
+        AND 0FCH				;Bitmask off Page 0
+        OR C					;Get New Primary Slot ID
+        LD D,A					;Store New Primary Slot ID
+        RRCA					;Rotate Page 3 into 2....why.....
         RRCA
+        AND 0C0H				;Mask what was Page 0, now Page 3
+        LD E,A					;Store in 'E'
+        LD A,D					;Get New Primary Slot ID back
+        AND 3FH					;Mask off Page 3
+        OR E					;Combine with previous mask of Page 3
+        OUT (0A8H),A			;And write to Primary Slot Register
+        LD A,B					;Get Slot ID again
+        AND 0CH					;Mask off Page 0
+        RRCA					;Rotate into Page 3
         RRCA
-        AND 0C0H
-        LD E,A
-        LD A,D
-        AND 3FH
-        OR E
-        OUT (0A8H),A
-        LD A,B
-        AND 0CH
-        RRCA
-        RRCA
-        LD C,A
-        LD A,(SSLTRG)
-        CPL
-        AND 0FCH
-        OR C
-        LD (SSLTRG),A
-        LD A,D
-        OUT (0A8H),A
-        POP DE
+        LD C,A					;Store it
+        LD A,(SSLTRG)			;Get Secondary Slot Register
+        CPL						;We need to invert it.
+        AND 0FCH				;Bitmask off Page 0
+        OR C					;Combine with new Page
+        LD (SSLTRG),A			;Write back to Slot Register
+        LD A,D					;Get Primary Slot ID back
+        OUT (0A8H),A			;Write to Primary Slot Register
+        POP DE					;Restore our registers and return
         POP BC
-        RET
+        RET						;We didn't re-enable interrupts....
 		
+;---------------------------------------------------
 ;	  Subroutine Enable FDC on page 0
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;	     Inputs: None
+;	     Outputs: None
+;		 Remarks: GETWRK Gets Slot ID possibly?
+;---------------------------------------------------
 
 ENAFDC:
-		PUSH AF
+		PUSH AF					;Save all registers.
         PUSH BC
         PUSH DE
         PUSH HL
-        CALL GETWRK
-        LD B,0			; page 0
-        CALL GTCSLT			; Get current slotid on page
-        LD (IX+24),A
-        LD B,1			; page 1
-        CALL GTCSLT			; Get current slotid on page
-        LD (IX+23),A
-        LD B,2			; page 2
-        CALL GTCSLT			; Get current slotid on page
-        LD (IX+22),A
-        DI 
-        LD A,(IX+23)
-        CALL SSLTID			; Set slotid on page 0
-        POP HL
+        CALL GETWRK				;Get Disk Driver Work Area.
+								;Stores Work area in 'IX'
+								;and destroys 'A', and 'HL'
+								;Also gets slot ID I think...
+								
+        LD B,0					;Get Slot ID for Page 0
+        CALL GTCSLT
+        LD (IX+24),A			;Store it.
+        LD B,1					;Get Slot ID for Page 1
+        CALL GTCSLT
+        LD (IX+23),A			;Store it.
+        LD B,2					;Get Slot ID for Page 2
+        CALL GTCSLT
+        LD (IX+22),A			;Store it.
+        DI						;Disable Interrupts
+        LD A,(IX+23)			;Get Slot ID for Page 1 back
+        CALL SSLTID				;Set Slot ID on Page 0
+        POP HL					;Restore Registers and Return
         POP DE
         POP BC
         POP AF
-        RET
+        RET						;But we didn't Re-Enable Interrupts....
 
 ;---------------------------------------------------
 ;
@@ -321,36 +337,37 @@ DSK3205:
         DEFB	1
         DEFW	3
 
-
+;---------------------------------------------------
 ;	  Subroutine DSKIO
 ;	     Inputs  ________________________
 ;	     Outputs ________________________
+;---------------------------------------------------
 
 DSKIO:
 		JP NC,J$761F
 ;
-        CALL DISINT
+        CALL DISINT			;Disable Interrupts before Disk Access
         DI
         CALL ENAFDC			; Enable FDC on page 0
-        CALL C$7563
-J.753B:
+        CALL C$7563			;Only used by DSKIO - What does it do????
+DSKIO2:						;Was J.753B
 		PUSH AF
         LD C,100
-        JR NC,J$7542
+        JR NC,DSKIO3
         LD C,0
-J$7542:
+DSKIO3:
 		CALL C.781E
         LD (IX+0),200
         LD A,(IX+12)
         AND A
-        JR NZ,J$7554
+        JR NZ,DSKIO4
         LD (IX+1),C
-        JR J$7557
+        JR DSKIO5
 ;
 ;	-----------------
-J$7554:
+DSKIO4:
 		LD (IX+2),C
-J$7557:
+DSKIO5:
 		LD A,(IX+24)		; saved slotid on page 0
         CALL SSLTID			; Set slotid on page 0
         POP AF
@@ -534,11 +551,11 @@ J$761C:
 ;
 ;	-----------------
 J$761F:
-		CALL DISINT
-        DI
-        CALL ENAFDC			; Enable FDC on page 0
+		CALL DISINT			;Disable Interrupts before Disk Access
+        DI					;But we Disabled them again???
+        CALL ENAFDC			;Enable FDC on Page 0
         CALL C$762C
-        JP J.753B
+        JP DSKIO2			;Jump to DSKIO2
 ;
 ;	-----------------
 ;
@@ -1811,7 +1828,7 @@ I$7C3D:
 ;	     Outputs ________________________
 
 DSKFMT:
-        CALL DISINT
+        CALL DISINT			;Disable Interrupts before Disk Access
         DI
         CALL ENAFDC			; Enable FDC on page 0
 J$7CA5	EQU $-1				; Equates way down here?!?!
@@ -1986,7 +2003,7 @@ J$7D8B:
 		LD A,00H
 J.7D8D:
 		SCF
-        JP J.753B
+        JP DSKIO2
 ;
 ;	-----------------
 J$7D91:
