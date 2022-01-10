@@ -1114,9 +1114,15 @@ J$78A9:
 		POP BC
         RET
 
-;	  Subroutine INIHRD
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;---------------------------------------------------------------------------------
+; INIHRD
+;
+; Input:	None
+; Output:	None
+; Changed:	AF,BC,DE,HL,IX,IY may be affected
+; This routine initializes the hardware as soon as the control passes to the cartride.
+; Note that no work area is assigned when this routine is initiated.
+;---------------------------------------------------------------------------------
 
 INIHRD:
         LD B,0				;Page 0
@@ -1125,7 +1131,7 @@ INIHRD:
         LD B,1				;Page 1
         CALL GTCSLT			;Get Slot ID - Why?  We didn't store it....
         CALL SSLTID			;Set Slot ID on Page 0
-        XOR A
+        XOR A				;Zero out 'A'
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
         LD A,0CH
@@ -1155,9 +1161,11 @@ INIHRD2:
         CALL SSLTID			; Set slotid on page 0
         RET
 
-;	  Subroutine MTOFF
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;---------------------------------------------------------------------------------
+; MTOFF:
+;
+; Registers: AF can be affected
+;---------------------------------------------------------------------------------
 
 MTOFF:
         PUSH BC
@@ -1175,9 +1183,16 @@ MTOFF:
         POP BC
         RET
 
-;	  Subroutine DRIVES
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;---------------------------------------------------------------------------------
+; DRIVES
+;
+; Input:	F - The zero flag is reset in case one physical drive must act as two
+;				logical drives.
+; Outputs	L - Number of drives connected.
+; Registers: F, HL, IX, IY may be affected.
+;
+; Remark:	DOS1 does not handle L=0 correctly
+;---------------------------------------------------------------------------------
 
 DRIVES:
         CALL ENAFDC			; Enable FDC on page 0
@@ -1212,9 +1227,18 @@ DRIVES3:
         POP BC
         RET
 
-;	  Subroutine INIENV
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;---------------------------------------------------------------------------------
+; INIENV
+;
+; Input: 	None
+; Output:	None
+; Changed:	AF,BC,DE,HL,IX,IY may be affected
+;
+; This entry initializes the work area (enviroment).
+;
+; Remark:	examples installs own interrupt handler, but this is NOT required.
+;		depends on the hardware if this is needed.
+;---------------------------------------------------------------------------------
 
 INIENV:
         CALL GETWRK
@@ -1265,9 +1289,28 @@ J$7992:
 		POP AF
         JP PRVINT
 
-;	  Subroutine DSKCHG
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;---------------------------------------------------------------------------------
+; DSKCHG
+;
+; Inputs:	A - Drive Number
+;			B - 0
+;			C - Media Descriptor
+;			HL - Base address of DPB
+; Outputs: If sucessful Carry flag reset, 'B' = Disk Change Status:
+;			1	=	Disk Unchanged
+;			0	=	Unknown
+;			-1	=	Disk Changed
+;		Else, Carry Flag set, error code in 'A'
+;
+; If the disk has been changed or may have been changed (unknown), read the boot
+; sector or the first byte of the FAT of the currently inserted disk and transfer
+; a new DPB as with the GETDPB call descriptor below.
+;
+; Registers: AF,BC,DE,HL,IX,IY may be affected.
+;
+; Remark:	DOS1 kernel expects the DPB updated when disk change status is unknown or changed.
+;			DOS2 kernel does not care if the DPB is updated or not.
+;---------------------------------------------------------------------------------
 
 DSKCHG:
         EI
