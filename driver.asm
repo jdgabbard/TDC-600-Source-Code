@@ -395,7 +395,7 @@ DSKIO5:
 		LD A,(IX+24)		; saved slotid on page 0
         CALL SSLTID			; Set slotid on page 0
         POP AF
-        EI
+        EI					;Enable Interrupts and Return
         CALL ENAINT
         RET
 ;
@@ -1119,12 +1119,12 @@ J$78A9:
 ;	     Outputs ________________________
 
 INIHRD:
-        LD B,0			; page 0
-        CALL GTCSLT			; Get current slotid on page
-        PUSH AF
-        LD B,1			; page 1
-        CALL GTCSLT			; Get current slotid on page
-        CALL SSLTID			; Set slotid on page 0
+        LD B,0				;Page 0
+        CALL GTCSLT			;Get Slot ID
+        PUSH AF				;Store Slot ID on Stack
+        LD B,1				;Page 1
+        CALL GTCSLT			;Get Slot ID - Why?  We didn't store it....
+        CALL SSLTID			;Set Slot ID on Page 0
         XOR A
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL C.7837
