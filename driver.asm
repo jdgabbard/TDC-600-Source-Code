@@ -4,12 +4,15 @@
 ;
 ; Documentation work by Doug Gabbard, RetroDepot.net
 ; Original disassembly taken from: https://sourceforge.net/p/msxsyssrc/git/ci/master/tree/
+; This can generally be considered to be a Fork/Merge/Fork/Merge/etc with Arjen's work.
+; Though, he has only used a few pointers to data blocks from my suggestions.  And mostly, I
+; am borrowing from his work, and not the other way around.
 
-; NOTE:  Some of this work is guesswork, as I am fairly unfamiliar with the MSX architecture,
+; NOTE:  Some of this is guess work, as I am fairly unfamiliar with the MSX architecture,
 ;  and have not found all references to locations within the BIOS memory (Such as a call
 ;  to $00DD, which is in the middle of the Paddle Routine).  I must speculate that these are
 ;  memory locations in MSX-DOS instead of the BIOS itself.  However, I have yet to find where
-;  these are documented.  So I'm making an educated guess...
+;  these are documented.  So I'm making an educated guesses in certain areas of the code...
 
 ; Main Status Register A0=0+RD
 ; DATA A0=1+RD
@@ -42,7 +45,30 @@
 ;       PUBLIC  ENASLT
 ;       PUBLIC  XFER
 
-        
+;---------------------------------
+;Workspace as determined by Arjen
+;---------------------------------
+; +0    Motor-Off Timer
+; +1    Disk Change Drive 0 Timer
+; +2    Disk Change Drive 1 Timer
+; +3    Last Physical Drive
+; +4    Last Phantom Drive
+; +5    Number of Physical Drives
+; +6,5  WD37C65 CMD
+; +11   ?? Unknown ?? - Looks like FDC Ready Status
+; +12   FDC Operation Mode
+; +13   Media Descriptor (DKSFMT)
+; +14   WD37C65 Status ST1
+; +15   WD37C65 Status ST2
+; +16   WD37C65 Status ST3
+; +17   WD37C65 Status C
+; +18   WD37C65 Status H
+; +19   WD37C65 Status R
+; +20   WD37C65 Status N
+; +21   ?? Unknown ??
+; +22   SlotID Page 2
+; +23   SlotID Disk Controller
+; +24   slotID Page 0
 
 ;
 FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
@@ -372,15 +398,15 @@ DSKIO:
 							
         CALL DISINT			;Disable Interrupts before Disk Access
         DI
-        CALL ENAFDC			; Enable FDC on page 0
-        CALL C$7563			;Only used by DSKIO - What does it do????
+        CALL ENAFDC			;Enable FDC on page 0
+        CALL C$7563			;Only used by DSKIO - One of the Write Sectors Routines
 DSKIO2:						;Was J.753B
 		PUSH AF
-        LD C,100			;If Carry, we're Writing to Disk
+        LD C,100
         JR NC,DSKIO3
-        LD C,0				;If No Carry, we're Reading to Disk
+        LD C,0
 DSKIO3:
-		CALL C.781E
+		CALL FORCE_READY
         LD (IX+0),200
         LD A,(IX+12)
         AND A
@@ -398,13 +424,10 @@ DSKIO5:
         EI					;Enable Interrupts and Return
         CALL ENAINT
         RET
+;--------------------
+; Subroutine to Write Sectors
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
 C$7563:
 		CALL C.76E4
 ;
@@ -460,17 +483,15 @@ J$75A1:
         CALL C.77A0
 ;
         JR J.759E
+;--------------------
+; another Subroutine to Write Sectors
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.75A9:
 		LD E,07H	; 7 
 J$75AB:
-		CALL C.781E
+		CALL FORCE_READY
 ;
         PUSH HL
         PUSH DE
@@ -580,13 +601,12 @@ DSKIO_READ:					;Was J$761F
         CALL ENAFDC			;Enable FDC on Page 0
         CALL C$762C			;Alternate to C$7563
         JP DSKIO2			;Jump to DSKIO2
+
+;--------------------
+; Subroutine to Read Sectors
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C$762C:
 		CALL C.76E4
 ;
@@ -652,17 +672,16 @@ J$7673:
         CALL C.77A0
 ;
         JR J.766F
+
+;--------------------
+; Another Subroutine to Read Sectors
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.767A:
 		LD E,07H	; 7 
 J$767C:
-		CALL C.781E
+		CALL FORCE_READY
 ;
         PUSH HL
         PUSH DE
@@ -751,13 +770,12 @@ J$76E0:
 		LD A,02H	; 2 
         SCF
         RET
+
+;--------------------
+; Subroutine setup for disk operation
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.76E4:
 		PUSH AF
         PUSH BC
@@ -893,13 +911,12 @@ J.779B:
 ;
         POP HL
         RET
+
+;--------------------
+; Subroutine setup for next sector
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.77A0:
 		INC H
         INC H
@@ -945,15 +962,14 @@ J.77CE:
         CALL C.77E2
 ;
         RET
+
+;--------------------
+; Subroutine Seek to track
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.77E2:
-		CALL C.781E
+		CALL FORCE_READY
 ;
         LD A,(IX+6)
         AND 01H	; 1 
@@ -967,69 +983,70 @@ C.77E2:
         OR (IX+11)
         LD (IX+11),A
         LD A,07H	; 7 
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,(IX+6)
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         CALL C.788C
 ;
 J$780A:
 		LD A,0FH	; 15 
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,(IX+6)
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,(IX+7)
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         JP C.788C
+
+;--------------------
+; Subroutine force FDC ready
 ;
-;	-----------------
+; Remarks: Need to verify what the status bits are.
+;--------------------
+
+FORCE_READY:
+		LD	A,(FDCSTAL)				;Fetch Status Byte
+        AND 0D0H					;Bitmask: RQM,DIO,CB
+        XOR 80H						;Check if set or reset, if set - 'A' = 0
+        RET Z						;If bits set, return.
+        XOR A						;Otherwise, zero out 'A'
+        LD (IX+11),A				;Store in Workspace. (FDC Ready Status???)
+        LD (FDCLDOL),A				;PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        CALL FDC_WAIT				;Give it some time to process...
+        LD A,(IX+12)				;Get FDC Operation Mode
+        LD (FDCLDOL),A				;Write it to the FDC Operation REGISTER
+        RET							;Return
+
+;--------------------
+; Subroutine Wait
 ;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
-C.781E:
-		LD	A,(FDCSTAL)
-        AND 0D0H			; RQM,DIO,CB
-        XOR 80H
-        RET Z
-        XOR A
-        LD (IX+11),A
-        LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
-        CALL C.7837
-        LD A,(IX+12)
-        LD (FDCLDOL),A
-        RET
-;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
-C.7837:
+; Input:	None
+; Output:	None
+; Remarks: Burns 76 T-States.
+;--------------------
+
+FDC_WAIT:
 		EX (SP),HL
         EX (SP),HL
         EX (SP),HL
         EX (SP),HL
         RET
+
+;--------------------
+; Subroutine Write sector command to FDC
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.783C:
 		PUSH BC
         LD B,06H	; 6 
         PUSH IX
 J$7841:
-		CALL C.785B
+		CALL C.785B				;Write FDC Command
 ;
         LD A,(IX+6)
         INC IX
@@ -1038,31 +1055,36 @@ J$7841:
         POP IX
         POP BC
         LD A,(IX+9)
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,1BH
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,0FFH
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
-C.785B:
-		PUSH AF
-J$785C:
-		LD A,(FDCSTAL)
-        AND 0E0H			; RQM,DIO,EXM
-        CP 80H			; DR ready, CPU->FDC, Execution finshed ?
-        JR NZ,J$785C		; nope, wait
-        POP AF
-        LD (FDCDATL),A
-        RET
 
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
+;--------------------
+; Subroutine write command byte to FDC
+;
+; Input:	'A' = Command Byte
+; Output:	None
+; Remarks: Check what status bits mean
+;--------------------
+
+C.785B:
+		PUSH AF					;Store Command Instruction on Stack
+J$785C:
+		LD A,(FDCSTAL)			;Get the Status byte
+        AND 0E0H				;Bitmask for RQM,DIO,EXM
+        CP 80H					;Check if ready, bits will be 000XXXXX
+        JR NZ,J$785C			;If not, try again.
+        POP AF					;If ready, get back Command Instruction
+        LD (FDCDATL),A			;Write to Data port?  I would have thought LDOR....
+        RET						;Return
+
+;--------------------
+; Subroutine read result bytes from FDC
+;
+;--------------------
 
 C.786A:
 		PUSH IX
@@ -1074,26 +1096,25 @@ J.786C:
         LD A,(FDCDATL)
         LD (IX+14),A
         INC IX
-        CALL C.7837
+        CALL FDC_WAIT
         LD A,(FDCSTAL)
         AND 0C0H			; RQM, DIO
         CP 80H
         JR NZ,J.786C
         POP IX
         RET
+
+;--------------------
+; Subroutine wait for normal termination of seek/calibrate
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.788C:
 		PUSH BC
         LD B,20H	; " "
 J$788F:
 		LD A,08H	; 8 
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
 ;
         CALL C.786A
 ;
@@ -1102,7 +1123,7 @@ J$788F:
         CP 20H	; " "
         JR Z,J$78A9
 ;
-        CALL C.7837
+        CALL FDC_WAIT
 ;
         DEC BC
         LD A,B
@@ -1133,24 +1154,24 @@ INIHRD:
         CALL SSLTID			;Set Slot ID on Page 0
         XOR A				;Zero out 'A'
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
-        CALL C.7837
+        CALL FDC_WAIT
         LD A,0CH
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD A,03H
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD A,9FH
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD A,03H	; 3 
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD A,1CH
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
         LD A,07H	; 7 
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD A,00H
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD HL,0
 INIHRD2:
-		CALL C.7837
+		CALL FDC_WAIT
         DEC HL
         LD A,H
         OR L
@@ -1202,9 +1223,9 @@ DRIVES:
         LD (FDCLDOL),A
         CALL C.788C
         LD A,07H	; 7 
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         LD A,01H	; 1 
-        CALL C.785B
+        CALL C.785B			;Write FDC Command
         CALL C.788C
         LD L,1
         JR C,DRIVES2
@@ -1411,13 +1432,12 @@ GETDPB:	EI
         LD BC,18
         LDIR
         RET
+
+;--------------------
+; Subroutine install and relocate dskio routine in $SECBUF
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.79F0:
 		PUSH HL
         PUSH DE
@@ -1459,13 +1479,12 @@ J$7A1F:
         POP DE
         POP HL
         RET
+
+;--------------------
+; Subroutine modify dskio routine in $SECBUF for read operation
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C$7A23:
 		PUSH HL
         PUSH DE
@@ -1503,13 +1522,12 @@ J$7A44:
         POP DE
         POP HL
         RET
+
+;--------------------
+; Subroutine execute dskio routine in $SECBUF
 ;
-;	-----------------
-;
-;	  Subroutine __________________________
-;	     Inputs  ________________________
-;	     Outputs ________________________
-;
+;--------------------
+
 C.7A48:
 		PUSH HL
         LD HL,(SECBUF)
@@ -2006,25 +2024,25 @@ J.7CD1:
 J$7CDA:
 		LD C,01H	; 1 
         LD A,4DH	; "M"
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,D
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 J$7CE3	EQU	$-2
 ;
         LD A,02H	; 2 
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,09H	; 9 
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,52H	; "R"
-        CALL C.785B
+        CALL C.785B				;Write FDC Command
 ;
         LD A,0E5H
         LD DE,0
 J$7CF9:
-		CALL C.785B
+		CALL C.785B				;Write FDC Command
 ;
 J$7CFC:
 		LD B,04H	; 4 
