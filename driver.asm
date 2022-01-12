@@ -4,7 +4,7 @@
 ;
 ; Documentation work by Doug Gabbard, RetroDepot.net
 ; Original disassembly taken from: https://sourceforge.net/p/msxsyssrc/git/ci/master/tree/
-; This can generally be considered to be a Fork/Merge/Fork/Merge/etc with Arjen's work.
+; This can generally be considered to be a Fork/Merge/Pull/Merge/Pull/etc with Arjen's work.
 ; Though, he has only used a few pointers to data blocks from my suggestions.  And mostly, I
 ; am borrowing from his work, and not the other way around.
 
@@ -14,11 +14,6 @@
 ;  memory locations in MSX-DOS instead of the BIOS itself.  However, I have yet to find where
 ;  these are documented.  So I'm making an educated guesses in certain areas of the code...
 
-; Main Status Register A0=0+RD
-; DATA A0=1+RD
-; DATA A0=1+WR
-; Operations Register LDOR+WR
-; Control Register Mapped: High
 
 ;       EXTRN   INIHRD	=	78ABH
 ;       EXTRN   DRIVES	=	7910H
@@ -40,7 +35,7 @@
 ;       PUBLIC  SETINT
 ;       PUBLIC  PRVINT
 ;       PUBLIC  GETSLT
-;       PUBLIC  GETWRK
+;       PUBLIC  GETWRK	-	Gets Base Address of work area in 'IX' and 'HL'. Preserves DE and IY
 ;       PUBLIC  DIV16
 ;       PUBLIC  ENASLT
 ;       PUBLIC  XFER
@@ -54,8 +49,8 @@
 ; +3    Last Physical Drive
 ; +4    Last Phantom Drive
 ; +5    Number of Physical Drives
-; +6,5  WD37C65 CMD
-; +11   ?? Unknown ?? - Looks like FDC Ready Status
+; +6-10	WD37C65 CMD
+; +11   ?? Unknown ?? - Looks like FDC Master Status Register
 ; +12   FDC Operation Mode
 ; +13   Media Descriptor (DKSFMT)
 ; +14   WD37C65 Status ST1
@@ -69,6 +64,104 @@
 ; +22   SlotID Page 2
 ; +23   SlotID Disk Controller
 ; +24   slotID Page 0
+
+
+;---------------------------------
+;Register Documentation of WD37C65
+;---------------------------------
+
+;Data Register Map
+------------------
+;	+0 & /RD = Main Status Register
+;	+0 & /WR = Illegal Register
+;	+1 & /RD = Read from Data Register
+;	+1 & /WR = Write into Data Register
+
+;Master Status Register
+;----------------------
+;	D0 - FDD0 Busy Flag - If any FDD Flags set, will not read/write. (Seek Mode?)
+;	D1 - FDD1 Busy Flag - If any FDD Flags set, will not read/write. (Seek Mode?)
+;	D2 - FDD2 Busy Flag - If any FDD Flags set, will not read/write. (Seek Mode?)
+;	D3 - FDD3 Busy Flag - If any FDD Flags set, will not read/write. (Seek Mode?)
+;	D4 - FDC Busy Flag - Read/Write Command in progress. Cannot accept commands.
+;	D5 - CB / Execution Mode - 1=Execution Phase, 0=Result Phase. Only Non-DMA
+;	D6 - DIO - Data Direction Flag. If 1, Data from FDC to uP, if 0 Data from uP to FDC.
+;	D7 - RQM - Request for Master. Indicates Ready to Send/Receive data.
+;
+;	DIO and RQM should be used together to perform check of Ready and Direction.
+
+;Status Register 0
+;-----------------
+;	D0 - Used with D1
+;	D1 - Used with D0 to determine drive number at interrupt
+;	D2 - Indicates state of Head at interrupt
+;	D3 - Always presumed to be 0
+;	D4 - Equipment Check. Set if Track 0 signal fails after 77 Step Pulses
+;	D5 - When Seek is Complete this flag is set high
+;	D6 - When D7+D6 = 10, Invalid Command Issued.
+;	D7 - When D7+D6 = 00, Normal Termination of Command. 01, Abnormal Termination
+
+;Status Register 1
+;-----------------
+;	D0 - Missing Address Mark Flag
+;	D1 - Not Writable Flage - Set when WP signal is received during write
+;	D2 - No Data - Set when FDC cannot find Sector or ID Field
+;	D3 - Always 0
+;	D4 - Overrun Flag.  Set when not read after a certain time interval
+;	D5 - Data Error.  Set when FDC detects CRC error.
+;	D6 - Always 0
+;	D7 - End of Cylinder.  Set when FDC to read Sector after last Sector.
+
+;Status Register 2
+;-----------------
+;	D0 - Missing Data Address Mark in Field
+;	D1 - Bad Cylinder
+;	D2 - Scan Not.  Set when sector with conditions can't be found
+;	D3 - Scan Equal. Set when scan finds sector with equal conditions
+;	D4 - Wrong Cylinder.
+;	D5 - Data Error.  FDC found CRC error in data field.
+;	D6 - Control Mark. Set when FDC finds deleted address mark during read or scan.
+;	D7 - Always 0
+
+;Status Register 3
+;-----------------
+;	D0 - Unit Select 2. Used to indicate Unit Select 0 signal to FDC
+;	D1 - Unit Select 1. Used to indicate Unit Select 1 signal to FDC
+;	D2 - Head Select. Used to indicated Side Select signal to FDC
+;	D3 - Write Protect. Used by FDC to indicate status of WP signal.
+;	D4 - Track 0. Used by FDC to indicate Track 0 signal.
+;	D5 - Ready. Always 1. Drive always assumed to be ready.
+;	D6 - Write Protect. Assumed same as Write Protect D3 ???
+;	D7 - Always 0
+
+;Operations Register
+;-------------------
+;	D0 - Drive Select. If 0 and MOEN1 = 1: DS1 Active. If 1 and MOEN1 = 1: DS2
+;	D1 - Must be 0 for DS1 and DS2 to be active.
+;	D2 - /SRST.  Software Reset - Active with a 0
+;	D3 - DMAEN - DMA Enable
+;	D4 - MOEN1 - Motor on Enable. Inverted Output. /MO1 active only in PC/AT
+;	D5 - MOEN2 - Motor on Enable. Inverted Output. /MO2 active only in PC/AT
+;	D6 - Doesn't matter.  No Function.
+;	D7 - Mode Select. During Software reset used to select Special(1) or PC/AT(0) Modes.
+
+;---------------------------------
+; WD37C65 Commands
+;---------------------------------
+
+; The FDC can perform 15 different commands.  Each consisting of three phases: Command, 
+; Execute, and Result. During the command phase the FDC receives the information needed
+; to perform an operation. During execution the FDC performs the operation. The Result
+; phase the FDC provides status information to the uP.
+
+;FDC Commands
+-------------
+;	Read				Read Deleted Data		Write Data
+;	Write Deleted Data	Read a Track			Read ID
+;	Format a Track		Scan Equal				Scan Low or Equal
+;	Scan High or Equal	Recalibrate				Sense Interrupt Status
+;	Specify				Sense Drive Status		Seek
+
 
 ;
 FDCSTA	EQU	8000H	; ---LI		;WD37C65 PORT - STATUS REGISTER
@@ -969,36 +1062,35 @@ J.77CE:
 ;--------------------
 
 C.77E2:
-		CALL FORCE_READY
+		CALL FORCE_READY		;Self explanatory
+        LD A,(IX+6)				;Get FDC CMD Byte #1 - What does this do?
+        AND 01H					;Mask off Bit1
+        INC A					;Increment - now either 02h or 01h
+        AND (IX+11)				;AND with what I think is FDC Master Status Register
+        JR NZ,J$780A			;If not zero, go write commands.
+;
+        LD A,(IX+6)				;Else get FDC CMD Byte #1 again
+        AND 01H					;Mask off Bit1
+        INC A					;Increment - either 02h or 01h
+        OR (IX+11)				;Combine with Master Status Register
+        LD (IX+11),A			;Place back in FDC Master Status Mirror
+        LD A,07H
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         LD A,(IX+6)
-        AND 01H	; 1 
-        INC A
-        AND (IX+11)
-        JR NZ,J$780A
-;
-        LD A,(IX+6)
-        AND 01H	; 1 
-        INC A
-        OR (IX+11)
-        LD (IX+11),A
-        LD A,07H	; 7 
-        CALL C.785B				;Write FDC Command
-;
-        LD A,(IX+6)
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         CALL C.788C
 ;
 J$780A:
 		LD A,0FH	; 15 
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         LD A,(IX+6)
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         LD A,(IX+7)
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         JP C.788C
 
@@ -1014,7 +1106,7 @@ FORCE_READY:
         XOR 80H						;Check if set or reset, if set - 'A' = 0
         RET Z						;If bits set, return.
         XOR A						;Otherwise, zero out 'A'
-        LD (IX+11),A				;Store in Workspace. (FDC Ready Status???)
+        LD (IX+11),A				;Store in Workspace. (FDC Master Status Register)
         LD (FDCLDOL),A				;PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
         CALL FDC_WAIT				;Give it some time to process...
         LD A,(IX+12)				;Get FDC Operation Mode
@@ -1046,7 +1138,7 @@ C.783C:
         LD B,06H	; 6 
         PUSH IX
 J$7841:
-		CALL C.785B				;Write FDC Command
+		CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,(IX+6)
         INC IX
@@ -1055,10 +1147,10 @@ J$7841:
         POP IX
         POP BC
         LD A,(IX+9)
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,1BH
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,0FFH
 
@@ -1070,13 +1162,13 @@ J$7841:
 ; Remarks: Check what status bits mean
 ;--------------------
 
-C.785B:
+FDC_WR_CMD:
 		PUSH AF					;Store Command Instruction on Stack
-J$785C:
+FDC_WR_CMD2:
 		LD A,(FDCSTAL)			;Get the Status byte
         AND 0E0H				;Bitmask for RQM,DIO,EXM
         CP 80H					;Check if ready, bits will be 000XXXXX
-        JR NZ,J$785C			;If not, try again.
+        JR NZ,FDC_WR_CMD2		;If not, try again.
         POP AF					;If ready, get back Command Instruction
         LD (FDCDATL),A			;Write to Data port?  I would have thought LDOR....
         RET						;Return
@@ -1114,7 +1206,7 @@ C.788C:
         LD B,20H	; " "
 J$788F:
 		LD A,08H	; 8 
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
 ;
         CALL C.786A
 ;
@@ -1158,17 +1250,17 @@ INIHRD:
         LD A,0CH
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 off, dma enabled, select drive 1
         LD A,03H
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD A,9FH
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD A,03H	; 3 
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD A,1CH
         LD (FDCLDOL),A		; PC AT mode, motor 2 off, motor 1 on, dma enabled, select drive 1
         LD A,07H	; 7 
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD A,00H
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD HL,0
 INIHRD2:
 		CALL FDC_WAIT
@@ -1223,9 +1315,9 @@ DRIVES:
         LD (FDCLDOL),A
         CALL C.788C
         LD A,07H	; 7 
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         LD A,01H	; 1 
-        CALL C.785B			;Write FDC Command
+        CALL FDC_WR_CMD			;Write FDC Command
         CALL C.788C
         LD L,1
         JR C,DRIVES2
@@ -2024,25 +2116,25 @@ J.7CD1:
 J$7CDA:
 		LD C,01H	; 1 
         LD A,4DH	; "M"
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,D
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 J$7CE3	EQU	$-2
 ;
         LD A,02H	; 2 
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,09H	; 9 
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,52H	; "R"
-        CALL C.785B				;Write FDC Command
+        CALL FDC_WR_CMD				;Write FDC Command
 ;
         LD A,0E5H
         LD DE,0
 J$7CF9:
-		CALL C.785B				;Write FDC Command
+		CALL FDC_WR_CMD				;Write FDC Command
 ;
 J$7CFC:
 		LD B,04H	; 4 
