@@ -582,17 +582,17 @@ J$75A1:
 ;--------------------
 
 C.75A9:
-		LD E,07H	; 7 
+		LD E,07H			;Head 1 selected, Unit 0
 J$75AB:
 		CALL FORCE_READY
 ;
         PUSH HL
-        PUSH DE
+        PUSH DE				;Store Head/Unit selection.
         PUSH BC
         LD BC,0
         LD DE,0
-        LD A,45H	; "E"
-        CALL C.783C
+        LD A,45H			;Not Multi-Track, MFM mode
+        CALL FDC_SECTOR_CMD		;Appears to write the command instruction...
 ;
 J.75BC:
 		LD A,(DE)
@@ -630,7 +630,7 @@ J.75D0:
 ;
 ;	-----------------
 J$75DB:
-		CALL C.786A
+		CALL FDC_RD_RESULT
 ;
 J$75DE:
 		POP BC
@@ -652,7 +652,7 @@ J$75DE:
         CPL
         AND (IX+11)
         LD (IX+11),A
-        CALL C.77E2
+        CALL FDC_SEEK
 ;
         POP AF
         DEC E
@@ -772,17 +772,17 @@ J$7673:
 ;--------------------
 
 C.767A:
-		LD E,07H	; 7 
+		LD E,07H			;Head 1, Unit 0
 J$767C:
 		CALL FORCE_READY
 ;
         PUSH HL
-        PUSH DE
+        PUSH DE				;Store Head/Unit selection
         PUSH BC
         LD BC,0
         LD DE,0
-        LD A,66H	; "f"
-        CALL C.783C
+        LD A,66H			;Not Multi-Side Operation, MFM Mode, Skip Deleted Data Address Mark
+        CALL FDC_SECTOR_CMD		;Appears to write the command...
 ;
 J.768D:
 		LD A,(DE)
@@ -820,7 +820,7 @@ J.76A1:
 ;
 ;	-----------------
 J$76AC:
-		CALL C.786A
+		CALL FDC_RD_RESULT
 ;
 J$76AF:
 		POP BC
@@ -839,7 +839,7 @@ J$76AF:
         CPL
         AND (IX+11)
         LD (IX+11),A
-        CALL C.77E2
+        CALL FDC_SEEK
 ;
         POP AF
         DEC E
@@ -873,7 +873,7 @@ C.76E4:
 		PUSH AF
         PUSH BC
         PUSH HL
-        CALL GETWRK				;Gets Work Area in IX
+        CALL GETWRK				;Gets Work Area in IX and HL
 ;
         POP HL
         POP BC
@@ -1000,7 +1000,7 @@ J$777A:
         CALL SSLTID			; Set slotid on page 0
 ;
 J.779B:
-		CALL C.77E2
+		CALL FDC_SEEK
 ;
         POP HL
         RET
@@ -1052,7 +1052,7 @@ J.77CE:
         LD (IX+8),A
         INC C
         LD (IX+7),C
-        CALL C.77E2
+        CALL FDC_SEEK
 ;
         RET
 
@@ -1061,37 +1061,33 @@ J.77CE:
 ;
 ;--------------------
 
-C.77E2:
+FDC_SEEK:
 		CALL FORCE_READY		;Self explanatory
         LD A,(IX+6)				;Get FDC CMD Byte #1 - What does this do?
         AND 01H					;Mask off Bit1
         INC A					;Increment - now either 02h or 01h
         AND (IX+11)				;AND with what I think is FDC Master Status Register
-        JR NZ,J$780A			;If not zero, go write commands.
-;
+        JR NZ,FDC_SEEK2			;If not zero, go write commands.
+
         LD A,(IX+6)				;Else get FDC CMD Byte #1 again
         AND 01H					;Mask off Bit1
         INC A					;Increment - either 02h or 01h
         OR (IX+11)				;Combine with Master Status Register
         LD (IX+11),A			;Place back in FDC Master Status Mirror
-        LD A,07H
-        CALL FDC_WR_CMD			;Write FDC Command
-;
+
+        LD A,07H				;Write FDC Command to Recalibrate???
+        CALL FDC_WR_CMD
         LD A,(IX+6)
         CALL FDC_WR_CMD			;Write FDC Command
-;
-        CALL C.788C
-;
-J$780A:
-		LD A,0FH	; 15 
-        CALL FDC_WR_CMD			;Write FDC Command
-;
-        LD A,(IX+6)
-        CALL FDC_WR_CMD			;Write FDC Command
-;
-        LD A,(IX+7)
-        CALL FDC_WR_CMD			;Write FDC Command
-;
+        CALL C.788C				;Wait for termination of Seek/Calibrate
+
+FDC_SEEK2:
+		LD A,0FH				;Write Seek Command 
+        CALL FDC_WR_CMD
+        LD A,(IX+6)				;Write Head and Unit
+        CALL FDC_WR_CMD
+        LD A,(IX+7)				;Write New Cylinder Number to Seek to
+        CALL FDC_WR_CMD
         JP C.788C
 
 ;--------------------
@@ -1107,7 +1103,7 @@ FORCE_READY:
         RET Z						;If bits set, return.
         XOR A						;Otherwise, zero out 'A'
         LD (IX+11),A				;Store in Workspace. (FDC Master Status Register)
-        LD (FDCLDOL),A				;PC AT mode, motor 2 off, motor 1 off, dma disabled, reset, select drive 1
+        LD (FDCLDOL),A				;PC/AT mode, MTR 2 off, MTR 1 off, dma disabled, reset, select drive 1
         CALL FDC_WAIT				;Give it some time to process...
         LD A,(IX+12)				;Get FDC Operation Mode
         LD (FDCLDOL),A				;Write it to the FDC Operation REGISTER
@@ -1129,30 +1125,32 @@ FDC_WAIT:
         RET
 
 ;--------------------
-; Subroutine Write sector command to FDC
+; Subroutine Setup FDC for Read/Write Sector
 ;
+; Input:	A - Initial Command (Read/Write)
+;			E - I think this is Head/Unit selection - Not used...
 ;--------------------
 
-C.783C:
-		PUSH BC
-        LD B,06H	; 6 
-        PUSH IX
-J$7841:
-		CALL FDC_WR_CMD				;Write FDC Command
+FDC_SECTOR_CMD:
+		PUSH BC						;Save our Registers
+        LD B,06H					;Counter for Command to write
+        PUSH IX						;Our index too
+FDC_SECTOR_CMD2:
+		CALL FDC_WR_CMD				;Write the FDC Command in A first, then get others.
+									
+        LD A,(IX+6)					;After first command, get next, increment pointer,
+        INC IX						;and go write it until we hit 0.
+        DJNZ FDC_SECTOR_CMD2		;At Zero we're done writing the commands
 ;
-        LD A,(IX+6)
-        INC IX
-        DJNZ J$7841
-;
-        POP IX
-        POP BC
+        POP IX						;Get our pointer back
+        POP BC						;Get our register back
         LD A,(IX+9)
         CALL FDC_WR_CMD				;Write FDC Command
 ;
-        LD A,1BH
+        LD A,1BH					;GPL (Size of Gap) possibly???
         CALL FDC_WR_CMD				;Write FDC Command
 ;
-        LD A,0FFH
+        LD A,0FFH					;Looks like Data length - goes on to write afterwards.
 
 ;--------------------
 ; Subroutine write command byte to FDC
@@ -1178,23 +1176,23 @@ FDC_WR_CMD2:
 ;
 ;--------------------
 
-C.786A:
-		PUSH IX
-J.786C:
-		LD A,(FDCSTAL)
-        AND 0C0H			; RQM, DIO
+FDC_RD_RESULT:
+		PUSH IX					;Save our pointer
+FDC_RD_RESULT2:
+		LD A,(FDCSTAL)			;Get Master Status Byte
+        AND 0C0H				;Mask off RQM & DIO - Are we ready?
         CP 0C0H
-        JR NZ,J.786C
-        LD A,(FDCDATL)
-        LD (IX+14),A
-        INC IX
-        CALL FDC_WAIT
-        LD A,(FDCSTAL)
-        AND 0C0H			; RQM, DIO
+        JR NZ,FDC_RD_RESULT2	;If not wait until we are.
+        LD A,(FDCDATL)			;If so, read byte
+        LD (IX+14),A			;Push it into the work space
+        INC IX					;Point to next location
+        CALL FDC_WAIT			;Wait for FDC to be ready
+        LD A,(FDCSTAL)			;Get Master Status byte again
+        AND 0C0H				;Mask off RQM & DIO - More Data? (Looking at direction bit)
         CP 80H
-        JR NZ,J.786C
-        POP IX
-        RET
+        JR NZ,FDC_RD_RESULT2	;If not done, do it again.
+        POP IX					;Otherwise get our pointer back
+        RET						;And return
 
 ;--------------------
 ; Subroutine wait for normal termination of seek/calibrate
@@ -1208,7 +1206,7 @@ J$788F:
 		LD A,08H	; 8 
         CALL FDC_WR_CMD			;Write FDC Command
 ;
-        CALL C.786A
+        CALL FDC_RD_RESULT
 ;
         LD A,(IX+14)
         AND 0F0H
@@ -1897,7 +1895,7 @@ J.7B8F:
         LD A,(IX+23)
         CALL SSLTID			; Set slotid on page 0
         POP HL
-        CALL C.77E2
+        CALL FDC_SEEK
         PUSH HL
         LD A,(IX+24)		; saved slotid on page 0
         CALL SSLTID			; Set slotid on page 0
@@ -1998,7 +1996,7 @@ J.7C19:
 ; Changed:	AF,BC,DE,HL,IX,IY may be affected
 ;---------------------------------------------------------------------------------
 CHOICE:
-        LD HL,I$7C3D
+        LD HL,CHOICE_MSG
         RET
 ;
 
@@ -2008,7 +2006,7 @@ CHOICE:
 ;
 ;	This is the data pointed to by CHOICE.
 ;---------------------------------------------------------------------------------
-I$7C3D:
+CHOICE_MSG:
 
 	;Text Data terminates with 00H.
 	;DEFB 0DH,0AH,31H,29H,20H, 33H,2EH,35H,22H,20H, 20H,53H,69H,6DH,70H,6CH
@@ -2165,7 +2163,7 @@ J.7D06:
 J$7D17:
 		POP HL
         POP DE
-        CALL C.786A
+        CALL FDC_RD_RESULT
 ;
         BIT 1,(IX+15)
         JR NZ,J$7D8B
@@ -2220,7 +2218,7 @@ J$7D6D:
         LD (IX+6),D
         LD (IX+8),00H
         LD (IX+9),01H	; 1 
-        CALL C.77E2
+        CALL FDC_SEEK
 ;
         LD A,01H	; 1 
         EX AF,AF'
@@ -2250,7 +2248,7 @@ J$7D91:
         LD (IX+6),D
         LD (IX+8),00H
         LD (IX+9),01H	; 1 
-        CALL C.77E2
+        CALL FDC_SEEK
         JR C,J$7D83
         CALL GETWRK
         LD A,(IX+24)		; saved slotid on page 0
@@ -2423,8 +2421,8 @@ I$7E92:
         INC HL
         LD (HL),0C0H
 J$7EBD:
-		LD SP,F51FH
-        LD DE,C0B5H
+		LD SP,0F51FH
+        LD DE,0C0B5H
         LD C,0FH				;BDOS CALL TO OPEN FILE (FCB)
         CALL ROMBDOS
         INC A
@@ -2435,7 +2433,7 @@ J$7EBD:
         LD HL,1
         LD (0C0C3H),HL
         LD HL,04000H-0100H
-        LD DE,C0B5H
+        LD DE,0C0B5H
         LD C,27H				;BDOS CALL TO RANDOM BLOCK READ (FCB)
         CALL ROMBDOS
         JP 0100H
@@ -2448,19 +2446,19 @@ J$7EBD:
         LD A,C
         AND 0FEH
         CP 02H	; 2 
-        JP NZ,J$C06A
+        JP NZ,0C06Ah
 ;
         LD A,(0C0DAH)
         AND A
         JP Z,4022H
 ;
-        LD DE,C08FH
+        LD DE,0C08FH
         CALL 0C081H
 ;
         LD C,07H				;BDOS CALL TO DIRECT CONSOLD INPUT
         CALL ROMBDOS
 ;
-        JR J$7EBD
+        JR 07EBD
 ;
 ;	-----------------
 ?.7F09:
@@ -2483,7 +2481,7 @@ J$7F13:
 ;
         POP DE
         INC DE
-        JR J$7F13
+        JR 07F13h
 ;
 ;	-----------------
 ?.7F21:	
